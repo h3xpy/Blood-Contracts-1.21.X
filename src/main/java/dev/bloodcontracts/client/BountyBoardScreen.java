@@ -5,26 +5,28 @@ import dev.bloodcontracts.network.BCPayloads;
 import dev.bloodcontracts.network.BCPayloads.BountyListPayload;
 import dev.bloodcontracts.network.BountyView;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Bounty board: active bounties and history, details of the selected entry, cancel and "new bounty" actions.
- * Purely a view: every action is an intention sent to the server, which answers with a fresh list.
+ * Bounty board, styled as a wall of wanted posters: active bounties and history, details on hover, cancel and
+ * "new bounty" actions. Purely a view: every action is an intention sent to the server, which answers with a fresh list.
  */
 public class BountyBoardScreen extends Screen {
-    private static final int WIDTH = 320;
-    private static final int HEIGHT = 222;
-    private static final int ROW_HEIGHT = 22;
-    private static final int ROWS = 6;
-    private static final int LIST_TOP = 42;
+    private static final int WIDTH = 330;
+    private static final int HEIGHT = 236;
+    private static final int ROW_HEIGHT = 30;
+    private static final int ROWS = 4;
+    private static final int LIST_TOP = 66;
+    private static final int LIST_LEFT = 12;
+    private static final int LIST_RIGHT = WIDTH - 20;
 
     private List<BountyView> active = List.of();
     private List<BountyView> history = List.of();
@@ -35,9 +37,9 @@ public class BountyBoardScreen extends Screen {
     private boolean statusIsError;
     private boolean loaded;
 
-    private Button activeTab;
-    private Button historyTab;
-    private Button cancelButton;
+    private BCGui.TabButton activeTab;
+    private BCGui.TabButton historyTab;
+    private BCGui.BloodButton cancelButton;
 
     public BountyBoardScreen() {
         super(Component.translatable("bloodcontracts.gui.board.title"));
@@ -54,15 +56,14 @@ public class BountyBoardScreen extends Screen {
     @Override
     protected void init() {
         int l = left(), t = top();
-        activeTab = addRenderableWidget(Button.builder(Component.empty(), b -> switchTab(false)).bounds(l + 8, t + 18, 100, 18).build());
-        historyTab = addRenderableWidget(Button.builder(Component.empty(), b -> switchTab(true)).bounds(l + 112, t + 18, 100, 18).build());
-        cancelButton = addRenderableWidget(Button.builder(Component.translatable("bloodcontracts.gui.cancel"), b -> cancelSelected())
-                .bounds(l + 8, t + HEIGHT - 26, 96, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("bloodcontracts.gui.new"),
-                b -> PacketDistributor.sendToServer(BCPayloads.OpenCreateMenuRequest.INSTANCE))
-                .bounds(l + 112, t + HEIGHT - 26, 96, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-                .bounds(l + WIDTH - 104, t + HEIGHT - 26, 96, 20).build());
+        activeTab = addRenderableWidget(new BCGui.TabButton(l + LIST_LEFT, t + 46, 110, 16, Component.empty(), b -> switchTab(false)));
+        historyTab = addRenderableWidget(new BCGui.TabButton(l + LIST_LEFT + 114, t + 46, 110, 16, Component.empty(), b -> switchTab(true)));
+        int by = t + HEIGHT - 30;
+        cancelButton = addRenderableWidget(new BCGui.BloodButton(l + 12, by, 100, 20,
+                Component.translatable("bloodcontracts.gui.cancel"), b -> cancelSelected(), true));
+        addRenderableWidget(new BCGui.BloodButton(l + 116, by, 100, 20, Component.translatable("bloodcontracts.gui.new"),
+                b -> PacketDistributor.sendToServer(BCPayloads.OpenCreateMenuRequest.INSTANCE), true));
+        addRenderableWidget(new BCGui.BloodButton(l + WIDTH - 108, by, 96, 20, Component.translatable("gui.done"), b -> onClose(), false));
         refreshWidgets();
     }
 
@@ -99,8 +100,8 @@ public class BountyBoardScreen extends Screen {
         }
         activeTab.setMessage(Component.translatable("bloodcontracts.gui.tab.active", active.size()));
         historyTab.setMessage(Component.translatable("bloodcontracts.gui.tab.history", history.size()));
-        activeTab.active = showHistory;
-        historyTab.active = !showHistory;
+        activeTab.selected = !showHistory;
+        historyTab.selected = showHistory;
         cancelButton.visible = !showHistory;
         cancelButton.active = selected != null && selected.mine() && selected.state() == BountyState.ACTIVE;
     }
@@ -115,70 +116,107 @@ public class BountyBoardScreen extends Screen {
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(g, mouseX, mouseY, partialTick);
         int l = left(), t = top();
-        g.fill(l, t, l + WIDTH, t + HEIGHT, 0xF0201010);
-        g.renderOutline(l, t, WIDTH, HEIGHT, 0xFF8B0000);
-        g.fill(l + 6, t + LIST_TOP - 2, l + WIDTH - 6, t + LIST_TOP + ROWS * ROW_HEIGHT + 2, 0xFF100808);
+        BCGui.panel(g, l, t, WIDTH, HEIGHT);
+        BCGui.drop(g, l + 14, t + 11);
+        BCGui.drop(g, l + WIDTH - 30, t + 11);
+        BCGui.title(g, font, title, l + WIDTH / 2, t + 12, 1.6f);
+        long claimed = history.stream().filter(v -> v.state() == BountyState.CLAIMED).count();
+        BCGui.centered(g, font, Component.translatable("bloodcontracts.gui.board.subtitle", active.size(), claimed),
+                l + WIDTH / 2, t + 29, BCGui.INK_LIGHT);
+        BCGui.divider(g, l + 14, l + WIDTH - 14, t + 41);
+        // page under the tabs
+        g.fill(l + LIST_LEFT, t + 62, l + WIDTH - 12, t + 63, 0xFF3B2412);
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
         int l = left(), t = top();
-        g.drawCenteredString(font, title, l + WIDTH / 2, t + 6, 0xFFE04040);
 
         List<BountyView> rows = rows();
-        if (!loaded) {
-            g.drawCenteredString(font, Component.translatable("bloodcontracts.gui.loading"), l + WIDTH / 2, t + LIST_TOP + 30, 0xFFAAAAAA);
-        } else if (rows.isEmpty()) {
-            g.drawCenteredString(font, Component.translatable(showHistory ? "bloodcontracts.command.no_history" : "bloodcontracts.command.none_active"),
-                    l + WIDTH / 2, t + LIST_TOP + 30, 0xFFAAAAAA);
+        if (!loaded || rows.isEmpty()) {
+            Component empty = !loaded ? Component.translatable("bloodcontracts.gui.loading")
+                    : Component.translatable(showHistory ? "bloodcontracts.command.no_history" : "bloodcontracts.gui.board.empty");
+            BCGui.drop(g, l + WIDTH / 2 - 8, t + LIST_TOP + 30);
+            BCGui.centered(g, font, empty, l + WIDTH / 2, t + LIST_TOP + 52, BCGui.INK_LIGHT);
         }
+
         BountyView hovered = null;
+        boolean hoveredItem = false;
         for (int i = 0; i < ROWS && scroll + i < rows.size(); i++) {
             BountyView v = rows.get(scroll + i);
-            int x = l + 8, y = t + LIST_TOP + i * ROW_HEIGHT;
-            boolean isHovered = mouseX >= x && mouseX < l + WIDTH - 8 && mouseY >= y && mouseY < y + ROW_HEIGHT;
-            if (v == selected) {
-                g.fill(x, y, l + WIDTH - 8, y + ROW_HEIGHT, 0xFF5A1A1A);
-            } else if (isHovered) {
-                g.fill(x, y, l + WIDTH - 8, y + ROW_HEIGHT, 0xFF301414);
+            int x = l + LIST_LEFT, y = t + LIST_TOP + i * ROW_HEIGHT;
+            int right = l + LIST_RIGHT;
+            boolean over = mouseX >= x && mouseX < right && mouseY >= y && mouseY < y + ROW_HEIGHT - 2;
+            BCGui.inset(g, x, y, right - x, ROW_HEIGHT - 2, v == selected);
+            if (over && v != selected) {
+                g.fill(x + 1, y + 1, right - 1, y + ROW_HEIGHT - 3, 0x18000000);
             }
-            g.renderItem(v.reward(), x + 2, y + 3);
-            g.renderItemDecorations(font, v.reward(), x + 2, y + 3);
-            Component line1 = Component.literal(v.targetName()).withStyle(ChatFormatting.RED)
-                    .append(Component.literal("  " + v.reward().getCount() + "x ").withStyle(ChatFormatting.GOLD))
-                    .append(v.reward().getHoverName().copy().withStyle(ChatFormatting.GOLD));
-            g.drawString(font, line1, x + 22, y + 2, 0xFFFFFFFF);
-            g.drawString(font, secondLine(v), x + 22, y + 12, 0xFF999999);
-            if (isHovered && mouseX < x + 20) {
+            renderCard(g, v, x, y, right);
+            if (over) {
                 hovered = v;
+                hoveredItem = mouseX >= right - 25 && mouseX < right - 7;
             }
         }
-        if (rows.size() > ROWS) {
-            g.drawString(font, (scroll + 1) + "-" + Math.min(rows.size(), scroll + ROWS) + "/" + rows.size(),
-                    l + WIDTH - 50, t + 24, 0xFF888888);
-        }
+        BCGui.scrollbar(g, l + WIDTH - 17, t + LIST_TOP, ROWS * ROW_HEIGHT - 2, rows.size(), ROWS, scroll);
+
         if (status != null) {
-            g.drawCenteredString(font, status, l + WIDTH / 2, t + LIST_TOP + ROWS * ROW_HEIGHT + 8, statusIsError ? 0xFFFF5555 : 0xFF55FF55);
+            BCGui.centered(g, font, status, l + WIDTH / 2, t + LIST_TOP + ROWS * ROW_HEIGHT + 4, statusIsError ? BCGui.BLOOD_BRIGHT : BCGui.SUCCESS);
         }
         if (hovered != null) {
-            g.renderTooltip(font, hovered.reward(), mouseX, mouseY);
+            if (hoveredItem) {
+                g.renderTooltip(font, hovered.reward(), mouseX, mouseY);
+            } else {
+                g.renderComponentTooltip(font, details(hovered), mouseX, mouseY);
+            }
         }
     }
 
-    private Component secondLine(BountyView v) {
-        String date = new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(v.state() == BountyState.ACTIVE ? v.createdAt() : v.closedAt()));
-        var line = Component.literal(date);
-        if (v.state() == BountyState.CLAIMED) {
-            line.append(" — ").append(Component.translatable("bloodcontracts.command.claimed_by", v.hunterName().orElse("?")));
-        } else if (v.state() == BountyState.CANCELLED) {
-            line.append(" — ").append(Component.translatable("bloodcontracts.state.cancelled"));
-        }
-        v.sponsorName().ifPresent(s -> line.append(Component.translatable("bloodcontracts.command.by", s)));
+    private void renderCard(GuiGraphics g, BountyView v, int x, int y, int right) {
+        BCGui.face(g, v.targetId(), x + 5, y + 4, 20);
+        int tx = x + 31;
+        g.drawString(font, Component.literal(v.targetName()).withStyle(s -> s.withBold(true)), tx, y + 5, BCGui.BLOOD, false);
         if (v.mine()) {
-            line.append(" ").append(Component.translatable("bloodcontracts.gui.mine"));
+            int nameEnd = tx + font.width(Component.literal(v.targetName()).withStyle(s -> s.withBold(true))) + 4;
+            g.drawString(font, Component.translatable("bloodcontracts.gui.mine"), nameEnd, y + 5, BCGui.INK_LIGHT, false);
         }
-        return line;
+        MutableComponent reward = Component.literal(v.reward().getCount() + "× ").append(v.reward().getHoverName());
+        Component second = v.state() == BountyState.CLAIMED
+                ? Component.translatable("bloodcontracts.command.claimed_by", v.hunterName().orElse("?"))
+                : Component.translatable("bloodcontracts.gui.reward_line", reward);
+        g.drawString(font, second, tx, y + 16, v.state() == BountyState.ACTIVE ? BCGui.AMBER : BCGui.INK_LIGHT, false);
+
+        String date = new SimpleDateFormat("dd/MM HH:mm").format(new Date(v.state() == BountyState.ACTIVE ? v.createdAt() : v.closedAt()));
+        g.drawString(font, date, right - 30 - font.width(date), y + 5, BCGui.INK_LIGHT, false);
+
+        BCGui.slot(g, right - 25, y + 5, v.state() == BountyState.ACTIVE);
+        g.renderItem(v.reward(), right - 24, y + 6);
+        g.renderItemDecorations(font, v.reward(), right - 24, y + 6);
+
+        if (v.state() == BountyState.CLAIMED) {
+            BCGui.stamp(g, font, Component.translatable("bloodcontracts.gui.stamp.paid"), right - 82, y + 17, BCGui.BLOOD);
+        } else if (v.state() == BountyState.CANCELLED) {
+            BCGui.stamp(g, font, Component.translatable("bloodcontracts.gui.stamp.cancelled"), right - 82, y + 17, 0xFF505050);
+        }
+    }
+
+    private List<Component> details(BountyView v) {
+        List<Component> lines = new ArrayList<>();
+        SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        lines.add(Component.literal(v.targetName()).withStyle(s -> s.withColor(0xFF5555).withBold(true)));
+        lines.add(Component.translatable("bloodcontracts.command.info_reward",
+                Component.literal(v.reward().getCount() + "× ").append(v.reward().getHoverName())).withStyle(s -> s.withColor(0xFFAA00)));
+        lines.add(Component.translatable("bloodcontracts.gui.posted", fmt.format(new Date(v.createdAt()))).withStyle(s -> s.withColor(0xAAAAAA)));
+        v.sponsorName().ifPresent(n -> lines.add(Component.translatable("bloodcontracts.command.info_sponsor", n).withStyle(s -> s.withColor(0xAAAAAA))));
+        if (v.state() == BountyState.CLAIMED) {
+            lines.add(Component.translatable("bloodcontracts.command.info_claimed", v.hunterName().orElse("?"), fmt.format(new Date(v.closedAt())))
+                    .withStyle(s -> s.withColor(0xFFD700)));
+        } else if (v.state() == BountyState.CANCELLED) {
+            lines.add(Component.translatable("bloodcontracts.state.cancelled").withStyle(s -> s.withColor(0x888888)));
+        } else if (v.mine()) {
+            lines.add(Component.translatable("bloodcontracts.gui.hint.cancel").withStyle(s -> s.withColor(0x888888).withItalic(true)));
+        }
+        return lines;
     }
 
     @Override
@@ -187,8 +225,9 @@ public class BountyBoardScreen extends Screen {
         List<BountyView> rows = rows();
         for (int i = 0; i < ROWS && scroll + i < rows.size(); i++) {
             int y = t + LIST_TOP + i * ROW_HEIGHT;
-            if (mouseX >= l + 8 && mouseX < l + WIDTH - 8 && mouseY >= y && mouseY < y + ROW_HEIGHT) {
-                selected = rows.get(scroll + i);
+            if (mouseX >= l + LIST_LEFT && mouseX < l + LIST_RIGHT && mouseY >= y && mouseY < y + ROW_HEIGHT - 2) {
+                BountyView clicked = rows.get(scroll + i);
+                selected = clicked == selected ? null : clicked;
                 refreshWidgets();
                 return true;
             }

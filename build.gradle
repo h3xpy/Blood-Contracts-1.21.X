@@ -99,6 +99,15 @@ neoForge {
         client {
             client()
             loadedMods = [mods."${mod_id}"]
+            programArguments.addAll '--username', 'Joueur1'
+        }
+
+        // Second client for LAN tests: own game directory and player name (so its UUID differs).
+        client2 {
+            client()
+            loadedMods = [mods."${mod_id}"]
+            gameDirectory = project.file('run/client2')
+            programArguments.addAll '--username', 'Joueur2'
         }
 
         server {

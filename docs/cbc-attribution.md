@@ -78,3 +78,21 @@ chargement manuel de CBC, assemblage par la monture, tir par la redstone.
 
 `cannonOperatorWindowTicks` est fixé à **200 ticks** (10 s) : de quoi charger, viser et tirer, mais pas d'attribuer un tir
 d'horloge déclenché longtemps après.
+
+## Addon : CBC Enchanced Shells (« CBC More Shells » 1.4.0, `cbc_enhanced_shells`)
+
+Étude du jar `CBCmoreshells-1.4.0.jar` (bytecode, `javap`). Il exige CBC ≥ 5.11.4.
+
+| Élément | Constat | Prise en charge |
+|---|---|---|
+| Obus Mk.I–V, bunker buster, H-bomb, nuke, prototype, cluster, shell holder | Classes qui étendent celles de CBC (`HEShellProjectile`, `AbstractBigCannonProjectile`), types d'entité dans l'espace de noms `cbc_enhanced_shells`. Dégâts via `indirectArtilleryFire` (sans entité) ou `level.explode(obus, …)`. Dans ce second cas, l'**obus est l'entité directe** de la source. | Les entités de canon sont reconnues **par classe** (et non plus seulement par l'espace de noms `createbigcannons`). Elles sont marquées au tir. Le marquage est lu soit sur l'entité directe, soit via l'entité en cours de tick. |
+| Sous-munitions (cluster, shell holder) | Créées par `addFreshEntity` pendant le tick de l'obus parent. | Elles héritent du marquage. |
+| Missile mount | `MissileMountBlockEntity extends CannonMountBlockEntity`. | C'est une monture CBC : même règle d'opérateur. |
+| Rocket base (`cbc_enhanced_shells:rocket_base`) | Pile de blocs lancée par la redstone (`neighborChanged` → `tryLaunch`), sans contraption. | Les blocs du tag `bloodcontracts:cannon_launchers` sont des lanceurs : un clic sur le lanceur ou à côté enregistre l'opérateur. Une munition qui apparaît à 2 blocs au plus d'un lanceur récemment opéré est marquée, à condition qu'un seul opérateur corresponde. |
+| Désignateur de cible | Enregistre seulement une position dans l'objet. Il ne tire pas. | Ce n'est **pas** une interaction d'opérateur. |
+| Puits gravitationnel, vortex, brûlure nucléaire | Gestionnaires appelés au tick serveur, qui infligent des dégâts `magic` ou `on_fire` sans entité, longtemps après l'impact. | Pas d'attribution directe. Règle environnementale : si la victime a été touchée par un joueur (y compris par un obus marqué, enregistré dans le registre) dans la fenêtre `attributionWindowTicks`, ce joueur est crédité. |
+
+Tests ajoutés : `moreShellsHeShellCreditsOperator` (obus HE Mk.I tiré par un vrai canon, mort par le souffle) et
+`rocketBaseLauncherCreditsOperator` (vrai bloc de base de fusée et vraie entité fusée ; au niveau le plus proche, car un lancement réel
+demande une pile de fusée complète). Côté run principal : `explosionOfMarkedOwnerlessEntityCreditsMarkedPlayer` et
+`explosionOfOwnerlessEntityCreditsNobody` (chemin `level.explode(entité marquée)`).

@@ -18,9 +18,10 @@ import net.minecraft.world.item.ItemStack;
  */
 public class BountyCreateMenu extends AbstractContainerMenu {
     public static final int REWARD_SLOT = 0;
-    public static final int REWARD_X = 80;
-    public static final int REWARD_Y = 54;
-    public static final int INVENTORY_Y = 84;
+    // Layout shared with BountyCreateScreen (196 px tall "wanted poster").
+    public static final int REWARD_X = 8;
+    public static final int REWARD_Y = 84;
+    public static final int INVENTORY_Y = 114;
 
     private final Container reward;
 

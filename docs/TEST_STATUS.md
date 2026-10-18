@@ -1,12 +1,12 @@
 # État des tests
 
-Dernière exécution : 2026-10-18.
+Dernière exécution : 2026-10-18 (NeoForge 21.1.248).
 
 | Suite | Commande | Résultat |
 |---|---|---|
-| JUnit (logique pure) | `./gradlew test` | ✅ 34/34 |
-| GameTests, sans Create ni CBC | `./gradlew runGameTestServer` | ✅ 38/38 |
-| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2 (les 38 tests de base plus 6 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 44/44 |
+| JUnit (logique pure) | `./gradlew test` | ✅ 36/36 |
+| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 40/40 |
+| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 40 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 48/48 |
 
 Les serveurs de GameTest s'arrêtent avec un code non nul si un test échoue. Chaque GameTest tourne dans son propre batch
 (ils partagent l'état global du `BountyManager`) et commence par `TestSupport.reset()`.
@@ -64,6 +64,9 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 | ✅ | Explosion d'obus CBC : même règle | `CbcCompatTests.shellExplosionCreditsOperator` | Obus explosif contre un mur, cible hors trajectoire tuée par le souffle |
 | ✅ | Joueur assis | `CbcCompatTests.playerOnCarriageIsOperator` | Niveau le plus proche (voir `docs/cbc-attribution.md`) |
 | ✅ | Marquage persistant | `CbcCompatTests.markSurvivesSerialization` | |
+| ✅ | (ajout) Obus d'addon More Shells | `CbcCompatTests.moreShellsHeShellCreditsOperator` | Obus HE Mk.I tiré par un vrai canon, mort par le souffle |
+| ✅ | (ajout) Lanceur sans contraption (base de fusée More Shells) | `CbcCompatTests.rocketBaseLauncherCreditsOperator` | Niveau le plus proche : vrai bloc, vraie entité fusée |
+| ✅ | (ajout) Explosion d'une entité marquée sans propriétaire | `AttributionTests.explosionOfMarkedOwnerlessEntityCreditsMarkedPlayer`, `explosionOfOwnerlessEntityCreditsNobody` | Chemin `level.explode(obus, …)` des bombes More Shells |
 
 ### Réseau
 | | Exigence | Test(s) | Note |
@@ -74,6 +77,7 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 
 ## Ce qui demande un humain
 
-- ❌ (non automatisable) **Rendu visuel des écrans** : tableau des primes (touche `B` ou `/bounty gui`) et écran de création.
-  À vérifier dans un client : mise en page, défilement, info-bulles, bouton « Annuler » actif uniquement sur ses propres primes.
+- ❌ (non automatisable) **Rendu visuel des écrans** (thème « avis de recherche » : parchemin, têtes des cibles, tampons ;
+  textures générées par `tools/make_gui_textures.py`) : tableau des primes (touche `B` ou `/bounty gui`) et écran de création.
+  À vérifier dans un client, de préférence à deux en LAN (voir README) : mise en page, défilement, info-bulles, bouton « Annuler » actif uniquement sur ses propres primes.
   Leur logique serveur est testée ; le serveur dédié a démarré sans charger de classe client (vérifié une fois avec `runServer`).

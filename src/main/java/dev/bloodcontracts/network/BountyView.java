@@ -20,12 +20,13 @@ import net.minecraft.world.item.ItemStack;
  * @param sponsorName present only if the viewer may see it ({@code showSponsor}, or the viewer is the sponsor)
  * @param mine        the viewer sponsored this bounty (and may try to cancel it)
  */
-public record BountyView(UUID id, String targetName, Optional<String> sponsorName, boolean mine, ItemStack reward,
+public record BountyView(UUID id, UUID targetId, String targetName, Optional<String> sponsorName, boolean mine, ItemStack reward,
                          long createdAt, BountyState state, Optional<String> hunterName, long closedAt) {
 
     public static final StreamCodec<RegistryFriendlyByteBuf, BountyView> STREAM_CODEC = StreamCodec.of(
             (buf, v) -> {
                 UUIDUtil.STREAM_CODEC.encode(buf, v.id);
+                UUIDUtil.STREAM_CODEC.encode(buf, v.targetId);
                 ByteBufCodecs.STRING_UTF8.encode(buf, v.targetName);
                 ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8).encode(buf, v.sponsorName);
                 buf.writeBoolean(v.mine);
@@ -36,6 +37,7 @@ public record BountyView(UUID id, String targetName, Optional<String> sponsorNam
                 buf.writeLong(v.closedAt);
             },
             buf -> new BountyView(
+                    UUIDUtil.STREAM_CODEC.decode(buf),
                     UUIDUtil.STREAM_CODEC.decode(buf),
                     ByteBufCodecs.STRING_UTF8.decode(buf),
                     ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8).decode(buf),
@@ -54,6 +56,6 @@ public record BountyView(UUID id, String targetName, Optional<String> sponsorNam
                 ? b.reward().copy()
                 : new ItemStack(BuiltInRegistries.ITEM.get(b.rewardItem()), Math.max(1, b.rewardCount()));
         Optional<String> hunter = Optional.ofNullable(b.claimedBy()).map(manager::nameOf);
-        return new BountyView(b.id(), manager.nameOf(b.target()), sponsor, mine, display, b.createdAt(), b.state(), hunter, b.closedAt());
+        return new BountyView(b.id(), b.target(), manager.nameOf(b.target()), sponsor, mine, display, b.createdAt(), b.state(), hunter, b.closedAt());
     }
 }
