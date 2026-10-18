@@ -12,6 +12,7 @@ import dev.bloodcontracts.core.Bounty;
 import dev.bloodcontracts.core.BountyManager;
 import dev.bloodcontracts.core.BountyResult;
 import dev.bloodcontracts.core.BountyState;
+import dev.bloodcontracts.network.ServerPayloadHandler;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -64,6 +65,10 @@ public final class BountyCommands {
                         .then(Commands.argument("id", StringArgumentType.word()).suggests(ownActiveIds)
                                 .executes(ctx -> cancel(ctx, false))))
                 .then(Commands.literal("history").executes(BountyCommands::history))
+                .then(Commands.literal("gui").executes(ctx -> {
+                    ServerPayloadHandler.sendList(ctx.getSource().getPlayerOrException(), true, null, false);
+                    return 1;
+                }))
                 .then(Commands.literal("admin")
                         .requires(src -> src.hasPermission(Commands.LEVEL_GAMEMASTERS))
                         .then(Commands.literal("cancel")

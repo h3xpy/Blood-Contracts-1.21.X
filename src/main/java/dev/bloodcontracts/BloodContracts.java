@@ -4,6 +4,8 @@ import com.mojang.logging.LogUtils;
 import dev.bloodcontracts.attribution.BCAttachments;
 import dev.bloodcontracts.config.BCConfig;
 import dev.bloodcontracts.core.BountyEvents;
+import dev.bloodcontracts.menu.BCMenus;
+import dev.bloodcontracts.network.BCNetwork;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -19,6 +21,8 @@ public class BloodContracts {
     public BloodContracts(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, BCConfig.SPEC);
         BCAttachments.register(modBus);
+        BCMenus.register(modBus);
+        modBus.addListener(BCNetwork::register);
         BountyEvents.register(NeoForge.EVENT_BUS);
     }
 }
