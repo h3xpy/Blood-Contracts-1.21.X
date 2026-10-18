@@ -107,6 +107,42 @@ public class AttributionTests {
         });
     }
 
+    @GameTest(template = T, batch = "marked_explosive", timeoutTicks = 100)
+    public static void explosionOfMarkedOwnerlessEntityCreditsMarkedPlayer(GameTestHelper helper) {
+        // Compat code marks ownerless munitions (CBC shells, More Shells bombs calling level.explode(shell, ...)).
+        // The explosion's direct entity carries the mark: same path, with an ownerless TNT.
+        Scene s = scene(helper);
+        Vec3 far = helper.absoluteVec(new Vec3(3.5, 1, 30));
+        s.hunter().teleportTo(far.x, far.y, far.z);
+        s.target().setHealth(1f);
+        Vec3 p = s.target().position();
+        PrimedTnt tnt = new PrimedTnt(helper.getLevel(), p.x, p.y, p.z, null);
+        dev.bloodcontracts.attribution.BCAttachments.mark(tnt, s.hunter().getUUID(), helper.getLevel().getGameTime());
+        tnt.setFuse(1);
+        helper.getLevel().addFreshEntity(tnt);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(s.target().isDeadOrDying(), "TNT has not killed yet");
+            s.assertClaimedBy(helper, s.hunter());
+        });
+    }
+
+    @GameTest(template = T, batch = "unmarked_explosive", timeoutTicks = 100)
+    public static void explosionOfOwnerlessEntityCreditsNobody(GameTestHelper helper) {
+        Scene s = scene(helper);
+        hit(s.target(), s.sources().playerAttack(s.hunter()), 1f);
+        s.target().setHealth(1f);
+        Vec3 far = helper.absoluteVec(new Vec3(3.5, 1, 30));
+        s.hunter().teleportTo(far.x, far.y, far.z);
+        Vec3 p = s.target().position();
+        PrimedTnt tnt = new PrimedTnt(helper.getLevel(), p.x, p.y, p.z, null);
+        tnt.setFuse(1);
+        helper.getLevel().addFreshEntity(tnt);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(s.target().isDeadOrDying(), "TNT has not killed yet");
+            s.assertStillActive(helper);
+        });
+    }
+
     @GameTest(template = T, batch = "void_in_window", timeoutTicks = 100)
     public static void hitThenVoidWithinWindowCreditsHunter(GameTestHelper helper) {
         Scene s = scene(helper);

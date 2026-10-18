@@ -15,6 +15,10 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -58,6 +62,14 @@ public final class CbcCompat {
     public static final int MOUNT_REACH = 1;
     /** A shell spawns at the muzzle, just outside the contraption bounds. */
     private static final double MUZZLE_MARGIN = 2.0;
+    /** A rocket leaves its launcher block at (or next to) the block's position. */
+    private static final int LAUNCHER_REACH = 2;
+    /** Launcher blocks that fire without a contraption (e.g. More Shells rocket bases). Data-driven. */
+    public static final TagKey<Block> LAUNCHERS = TagKey.create(Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath(BloodContracts.MODID, "cannon_launchers"));
+    /** Extra entity types treated as cannon munitions (addon bursts that do not extend CBC classes). Data-driven. */
+    public static final TagKey<EntityType<?>> MUNITIONS = TagKey.create(Registries.ENTITY_TYPE,
+            ResourceLocation.fromNamespaceAndPath(BloodContracts.MODID, "cannon_munitions"));
 
     private static final CannonOperatorTracker TRACKER = new CannonOperatorTracker();
     private static final Deque<Entity> TICKING = new ArrayDeque<>();
@@ -88,14 +100,14 @@ public final class CbcCompat {
         }
     }
 
-    /** Records {@code player} as operator of every cannon mount at or next to {@code clicked}. */
+    /** Records {@code player} as operator of every cannon mount or launcher block at or next to {@code clicked}. */
     @VisibleForTesting
     public static void recordInteraction(ServerLevel level, BlockPos clicked, Player player) {
         for (BlockPos pos : BlockPos.betweenClosed(clicked.offset(-MOUNT_REACH, -MOUNT_REACH, -MOUNT_REACH),
                 clicked.offset(MOUNT_REACH, MOUNT_REACH, MOUNT_REACH))) {
-            if (level.getBlockEntity(pos) instanceof ControlPitchContraption) {
+            if (level.getBlockEntity(pos) instanceof ControlPitchContraption || level.getBlockState(pos).is(LAUNCHERS)) {
                 TRACKER.record(GlobalPos.of(level.dimension(), pos.immutable()), player.getUUID(), level.getGameTime());
-                debug("player {} operates cannon mount {}", player.getUUID(), pos);
+                debug("player {} operates cannon mount/launcher {}", player.getUUID(), pos);
             }
         }
     }
@@ -129,8 +141,16 @@ public final class CbcCompat {
 
     // ---------------------------------------------------------------- tick context
 
+    /**
+     * Cannon entities: CBC's own (bursts included), anything extending CBC's projectile or cannon classes (addons such as
+     * More Shells), and the {@code bloodcontracts:cannon_munitions} entity type tag.
+     */
     private static boolean isCbc(Entity entity) {
-        return IS_CBC.computeIfAbsent(entity.getType(), t -> CBC.equals(BuiltInRegistries.ENTITY_TYPE.getKey(t).getNamespace()));
+        if (entity instanceof AbstractCannonProjectile || entity instanceof PitchOrientedContraptionEntity) {
+            return true;
+        }
+        return IS_CBC.computeIfAbsent(entity.getType(), t -> CBC.equals(BuiltInRegistries.ENTITY_TYPE.getKey(t).getNamespace()))
+                || entity.getType().is(MUNITIONS);
     }
 
     private static void onEntityTickPre(EntityTickEvent.Pre event) {
@@ -189,8 +209,15 @@ public final class CbcCompat {
             cannons.addAll(level.getEntitiesOfClass(PitchOrientedContraptionEntity.class, around));
         }
         Optional<UUID> operator = firedBy(cannons, now);
+        String how = "fired by " + cannons.size() + " candidate cannon(s)";
+        if (cannons.isEmpty()) {
+            // No contraption: a launcher block (rocket base...) right where the munition appears.
+            operator = TRACKER.operatorNear(GlobalPos.of(level.dimension(), entity.blockPosition()), LAUNCHER_REACH, now,
+                    BCConfig.cannonOperatorWindowTicks());
+            how = "launched from a launcher block";
+        }
         if (operator.isPresent()) {
-            mark(entity, operator.get(), now, "fired by " + cannons.size() + " candidate cannon(s)");
+            mark(entity, operator.get(), now, how);
         } else {
             debug("{} {} fired without a reliable operator ({} candidate cannon(s))",
                     BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()), entity.getUUID(), cannons.size());
@@ -218,17 +245,16 @@ public final class CbcCompat {
 
     // ---------------------------------------------------------------- damage
 
-    /** Entity-less CBC damage is credited to the mark of the CBC entity ticking right now. */
+    /**
+     * Entity-less damage dealt while a marked cannon entity ticks is that entity's doing (CBC's {@code CannonDamageSource},
+     * addon effects such as More Shells' fire or magic damage). Credited to its mark.
+     */
     static Optional<UUID> resolve(DamageSource source) {
         if (source.getEntity() != null || source.getDirectEntity() != null) {
             return Optional.empty();
         }
-        boolean cbcDamage = source.typeHolder().unwrapKey().map(k -> CBC.equals(k.location().getNamespace())).orElse(false);
         Entity current = ticking();
-        if (!cbcDamage || current == null) {
-            return Optional.empty();
-        }
-        return BCAttachments.responsibleOf(current);
+        return current == null ? Optional.empty() : BCAttachments.responsibleOf(current);
     }
 
     private static void debug(String message, Object... args) {

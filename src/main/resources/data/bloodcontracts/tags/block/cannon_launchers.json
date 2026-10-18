@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "cbc_enhanced_shells:rocket_base",
+      "required": false
+    }
+  ]
+}

@@ -241,6 +241,71 @@ public class CbcCompatTests {
         helper.succeed();
     }
 
+    // ---------------------------------------------------------------- CBC Enchanced Shells ("More Shells") addon
+
+    private static final String MORE_SHELLS = "cbc_enhanced_shells";
+
+    private static BlockState moreShellsBlock(GameTestHelper helper, String id) {
+        helper.assertTrue(ModList.get().isLoaded(MORE_SHELLS), "More Shells not loaded in the compat run");
+        var key = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MORE_SHELLS, id);
+        helper.assertTrue(net.minecraft.core.registries.BuiltInRegistries.BLOCK.containsKey(key), "missing block " + key);
+        return net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(key).defaultBlockState();
+    }
+
+    @GameTest(template = T, batch = "cbces_he_mk", timeoutTicks = 100)
+    public static void moreShellsHeShellCreditsOperator(GameTestHelper helper) {
+        // Addon shell (its own entity namespace, extends CBC's HE shell) fired from a real cannon, blast behind a wall.
+        Range r = setUp(helper, moreShellsBlock(helper, "he_shell_mk1"), true, new Vec3(8.5, MOUNT.getY() + 2, 3.5));
+        for (int dy = 0; dy <= 4; dy++) {
+            for (int dz = 0; dz <= 2; dz++) {
+                helper.setBlock(new BlockPos(9, dy, dz), Blocks.OBSIDIAN);
+            }
+        }
+        pullFireLever(helper, r.operator());
+        helper.succeedWhen(() -> {
+            helper.assertTrue(r.target().isDeadOrDying(), "More Shells HE shell has not killed the target yet");
+            Bounty b = r.manager().findAny(r.bounty().id()).orElseThrow();
+            helper.assertTrue(r.operator().getUUID().equals(b.claimedBy()), "credited to " + b.claimedBy() + " (" + b.state() + ")");
+            cleanUp(helper);
+        });
+    }
+
+    @GameTest(template = T, batch = "cbces_rocket_base")
+    public static void rocketBaseLauncherCreditsOperator(GameTestHelper helper) {
+        // Closest level: a real rocket base with a lever clicked next to it, and a real rocket entity appearing on it
+        // (the launch itself needs a full rocket stack). A rocket appearing on an untouched base is not marked.
+        TestSupport.reset(helper);
+        CbcCompat.tracker().clear();
+        ServerPlayer operator = TestPlayers.create(helper, "gunner", new Vec3(0.5, 0, 4.5));
+        BlockPos base = new BlockPos(2, 0, 2);
+        BlockPos untouchedBase = new BlockPos(6, 0, 6);
+        helper.setBlock(base, moreShellsBlock(helper, "rocket_base"));
+        helper.setBlock(untouchedBase, moreShellsBlock(helper, "rocket_base"));
+        BlockPos lever = base.east();
+        helper.setBlock(lever, Blocks.LEVER.defaultBlockState().setValue(LeverBlock.FACE, AttachFace.FLOOR));
+        BlockPos absLever = helper.absolutePos(lever);
+        CommonHooks.onRightClickBlock(operator, InteractionHand.MAIN_HAND, absLever, new BlockHitResult(Vec3.atCenterOf(absLever), Direction.UP, absLever, false));
+
+        var rocketType = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MORE_SHELLS, "rocket"));
+        var rocket = rocketType.create(helper.getLevel());
+        helper.assertTrue(rocket instanceof rbasamoyai.createbigcannons.munitions.AbstractCannonProjectile, "rocket is not a CBC projectile");
+        Vec3 at = helper.absoluteVec(Vec3.atBottomCenterOf(base).add(0, 1, 0));
+        rocket.moveTo(at.x, at.y, at.z);
+        rocket.setNoGravity(true);
+        helper.getLevel().addFreshEntity(rocket);
+        helper.assertTrue(BCAttachments.responsibleOf(rocket).filter(operator.getUUID()::equals).isPresent(), "rocket not marked for the operator");
+
+        var stray = rocketType.create(helper.getLevel());
+        Vec3 at2 = helper.absoluteVec(Vec3.atBottomCenterOf(untouchedBase).add(0, 1, 0));
+        stray.moveTo(at2.x, at2.y, at2.z);
+        helper.getLevel().addFreshEntity(stray);
+        helper.assertTrue(BCAttachments.responsibleOf(stray).isEmpty(), "rocket from an untouched launcher was marked");
+        rocket.discard();
+        stray.discard();
+        helper.succeed();
+    }
+
     @GameTest(template = T, batch = "cbc_mark_persists")
     public static void markSurvivesSerialization(GameTestHelper helper) {
         TestSupport.reset(helper);

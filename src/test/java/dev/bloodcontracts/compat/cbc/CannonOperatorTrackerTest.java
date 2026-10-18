@@ -56,4 +56,23 @@ class CannonOperatorTrackerTest {
         t.purge(500, 200);
         assertEquals(1, t.size());
     }
+
+    @Test
+    void operatorNearFindsLauncherWithinReach() {
+        CannonOperatorTracker t = new CannonOperatorTracker();
+        t.record(MOUNT, A, 100);
+        GlobalPos spawn = GlobalPos.of(Level.OVERWORLD, new BlockPos(11, 65, 10));
+        assertEquals(Optional.of(A), t.operatorNear(spawn, 2, 110, 200));
+        assertEquals(Optional.empty(), t.operatorNear(GlobalPos.of(Level.OVERWORLD, new BlockPos(15, 64, 10)), 2, 110, 200));
+        assertEquals(Optional.empty(), t.operatorNear(GlobalPos.of(Level.NETHER, new BlockPos(11, 65, 10)), 2, 110, 200));
+        assertEquals(Optional.empty(), t.operatorNear(spawn, 2, 400, 200));
+    }
+
+    @Test
+    void operatorNearIsEmptyWhenOperatorsDisagree() {
+        CannonOperatorTracker t = new CannonOperatorTracker();
+        t.record(MOUNT, A, 100);
+        t.record(GlobalPos.of(Level.OVERWORLD, new BlockPos(12, 64, 10)), B, 100);
+        assertEquals(Optional.empty(), t.operatorNear(GlobalPos.of(Level.OVERWORLD, new BlockPos(11, 64, 10)), 2, 110, 200));
+    }
 }

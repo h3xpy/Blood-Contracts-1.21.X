@@ -36,6 +36,15 @@ repositories {
         }
         filter { includeGroup 'maven.modrinth' }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'CurseMaven'
+                url = 'https://cursemaven.com'
+            }
+        }
+        filter { includeGroup 'curse.maven' }
+    }
 }
 
 base {
@@ -168,6 +177,7 @@ dependencies {
     gametestCompatImplementation "maven.modrinth:create:${create_version}"
     gametestCompatImplementation "maven.modrinth:create-big-cannons:${cbc_version}"
     gametestCompatImplementation "maven.modrinth:rpl:${rpl_version}"
+    gametestCompatImplementation "curse.maven:cbc-enchanced-shells-create-big-cannons-1489732:${cbc_more_shells_file}"
     createJar("maven.modrinth:create:${create_version}") { transitive = false }
     // Registrate, Flywheel and Ponder are nested inside the Create jar; the compat GameTests need them to compile.
     gametestCompatCompileOnly fileTree(layout.buildDirectory.dir('createNested')) { include '*.jar' builtBy extractCreateNested }
