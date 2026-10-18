@@ -40,6 +40,8 @@ public class BountySavedData extends SavedData {
     private final List<PendingDelivery> deliveries = new ArrayList<>();
     private final List<CompoundTag> unreadableBounties = new ArrayList<>();
     private final List<CompoundTag> unreadableDeliveries = new ArrayList<>();
+    /** Every player who ever joined (UUID → last known name): valid bounty targets even while offline. */
+    private final Map<UUID, String> knownPlayers = new LinkedHashMap<>();
 
     public Collection<Bounty> activeBounties() {
         return Collections.unmodifiableCollection(active.values());
@@ -56,6 +58,19 @@ public class BountySavedData extends SavedData {
 
     public List<PendingDelivery> deliveries() {
         return Collections.unmodifiableList(deliveries);
+    }
+
+    public Optional<String> knownName(UUID player) {
+        return Optional.ofNullable(knownPlayers.get(player));
+    }
+
+    public Map<UUID, String> knownPlayers() {
+        return Collections.unmodifiableMap(knownPlayers);
+    }
+
+    /** @return true if this changed the data */
+    boolean rememberPlayer(UUID player, String name) {
+        return !name.equals(knownPlayers.put(player, name));
     }
 
     public int unreadableEntries() {
@@ -94,6 +109,7 @@ public class BountySavedData extends SavedData {
         deliveries.clear();
         unreadableBounties.clear();
         unreadableDeliveries.clear();
+        knownPlayers.clear();
     }
 
     // ---------------------------------------------------------------- serialization
@@ -114,6 +130,15 @@ public class BountySavedData extends SavedData {
         deliveries.forEach(d -> deliveryList.add(writeDelivery(d, registries)));
         unreadableDeliveries.forEach(raw -> deliveryList.add(raw.copy()));
         tag.put("Deliveries", deliveryList);
+
+        ListTag known = new ListTag();
+        knownPlayers.forEach((id, name) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("Id", id);
+            entry.putString("Name", name);
+            known.add(entry);
+        });
+        tag.put("KnownPlayers", known);
         return tag;
     }
 
@@ -143,6 +168,12 @@ public class BountySavedData extends SavedData {
             } else {
                 BloodContracts.LOGGER.error("Blood Contracts: could not decode pending delivery {}; keeping its raw data untouched", raw);
                 data.unreadableDeliveries.add(raw.copy());
+            }
+        }
+        for (Tag t : tag.getList("KnownPlayers", Tag.TAG_COMPOUND)) {
+            CompoundTag entry = (CompoundTag) t;
+            if (entry.hasUUID("Id")) {
+                data.knownPlayers.put(entry.getUUID("Id"), entry.getString("Name"));
             }
         }
         return data;

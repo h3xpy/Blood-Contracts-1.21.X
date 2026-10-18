@@ -115,7 +115,7 @@ public final class BountyManager {
     }
 
     public boolean isKnownPlayer(UUID uuid) {
-        if (server.getPlayerList().getPlayer(uuid) != null) {
+        if (server.getPlayerList().getPlayer(uuid) != null || data().knownName(uuid).isPresent()) {
             return true;
         }
         GameProfileCache cache = server.getProfileCache();
@@ -126,6 +126,10 @@ public final class BountyManager {
         ServerPlayer online = server.getPlayerList().getPlayer(uuid);
         if (online != null) {
             return online.getGameProfile().getName();
+        }
+        Optional<String> known = data().knownName(uuid);
+        if (known.isPresent()) {
+            return known.get();
         }
         GameProfileCache cache = server.getProfileCache();
         if (cache != null) {
@@ -357,6 +361,10 @@ public final class BountyManager {
 
     /** {@code PlayerLoggedInEvent}. */
     public void onPlayerLogin(ServerPlayer player) {
+        BountySavedData data = data();
+        if (data.rememberPlayer(player.getUUID(), player.getGameProfile().getName())) {
+            data.setDirty();
+        }
         deliverPending(player);
     }
 
