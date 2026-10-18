@@ -177,6 +177,8 @@ public class CbcCompatTests {
             helper.assertTrue(b.state() == BountyState.CLAIMED, "not claimed: " + b.state());
             helper.assertTrue(r.operator().getUUID().equals(b.claimedBy()), "credited to " + b.claimedBy() + " instead of the operator");
             helper.assertTrue(TestSupport.countOwed(r.manager(), r.operator(), r.marker()) == 3, "operator not paid");
+            helper.assertTrue(dev.bloodcontracts.gametest.AdvancementTests.done(helper, r.operator(), "special_delivery"),
+                    "cannon kill did not grant special_delivery");
             assertConserved(helper, r.manager(), r.marker(), 3);
             cleanUp(helper);
         });

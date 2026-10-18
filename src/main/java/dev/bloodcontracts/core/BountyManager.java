@@ -1,6 +1,7 @@
 package dev.bloodcontracts.core;
 
 import dev.bloodcontracts.BloodContracts;
+import dev.bloodcontracts.advancement.BountyTrigger;
 import dev.bloodcontracts.attribution.DamageLedger;
 import dev.bloodcontracts.attribution.KillAttributor;
 import dev.bloodcontracts.attribution.ResponsibleResolver;
@@ -214,9 +215,11 @@ public final class BountyManager {
         activeTargets = null;
         debug("created bounty {} sponsor={} target={} rewards={}", bounty.id(), bounty.sponsor(), target, bounty.summary());
 
+        BountyTrigger.fire(sponsor, BountyTrigger.Event.PLACED, 1);
         ServerPlayer onlineTarget = server.getPlayerList().getPlayer(target);
         if (onlineTarget != null) {
             BountyNotifier.get().bountyPlaced(onlineTarget, bounty, nameOf(sponsor.getUUID()));
+            BountyTrigger.fire(onlineTarget, BountyTrigger.Event.WANTED, activeOn(target).size());
         }
         return BountyResult.ok(bounty);
     }
@@ -309,7 +312,21 @@ public final class BountyManager {
             return List.of();
         }
         debug("death of {} ({}): credited to {}", victimId, type, hunter.get());
-        return claimAll(victimId, hunter.get());
+        List<Bounty> claimed = claimAll(victimId, hunter.get());
+        ServerPlayer hunterPlayer = server.getPlayerList().getPlayer(hunter.get());
+        if (!claimed.isEmpty() && hunterPlayer != null) {
+            BountyTrigger.fire(hunterPlayer, BountyTrigger.Event.CLAIMED, claimed.size());
+            if (isArtillery(source)) {
+                BountyTrigger.fire(hunterPlayer, BountyTrigger.Event.ARTILLERY, claimed.size());
+            }
+        }
+        return claimed;
+    }
+
+    /** A cannon kill: Create Big Cannons damage, or an explosion whose direct entity is a marked (cannon) munition. */
+    private static boolean isArtillery(DamageSource source) {
+        boolean cbcType = source.typeHolder().unwrapKey().map(k -> "createbigcannons".equals(k.location().getNamespace())).orElse(false);
+        return cbcType || dev.bloodcontracts.attribution.BCAttachments.responsibleOf(source.getDirectEntity()).isPresent();
     }
 
     /** Claims every active bounty on {@code target} that {@code hunter} is eligible for. */
@@ -428,6 +445,7 @@ public final class BountyManager {
         if (!onMe.isEmpty()) {
             // Bounties may have been placed while they were away: they learn it on arrival.
             BountyNotifier.get().bountiesOnLogin(player, onMe);
+            BountyTrigger.fire(player, BountyTrigger.Event.WANTED, onMe.size());
         }
     }
 

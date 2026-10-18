@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "minecraft:writable_book",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.bloodcontracts.root.title"
+    },
+    "description": {
+      "translate": "advancements.bloodcontracts.root.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "minecraft:textures/block/red_nether_bricks.png"
+  },
+  "criteria": {
+    "placed": {
+      "trigger": "bloodcontracts:bounty",
+      "conditions": {
+        "event": "placed"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "placed"
+    ]
+  ]
+}

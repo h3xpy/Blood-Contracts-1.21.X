@@ -1,0 +1,32 @@
+{
+  "parent": "bloodcontracts:root",
+  "display": {
+    "icon": {
+      "id": "minecraft:gold_ingot",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.bloodcontracts.blood_money.title"
+    },
+    "description": {
+      "translate": "advancements.bloodcontracts.blood_money.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "claimed": {
+      "trigger": "bloodcontracts:bounty",
+      "conditions": {
+        "event": "claimed"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "claimed"
+    ]
+  ]
+}

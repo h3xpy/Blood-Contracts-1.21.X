@@ -10,8 +10,8 @@ jamais leur zone.
 | Suite | Commande | Résultat |
 |---|---|---|
 | JUnit (logique pure) | `./gradlew test` | ✅ 40/40 |
-| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 50/50 |
-| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 50 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 58/58 |
+| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 53/53 |
+| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 53 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 61/61 |
 
 Les serveurs de GameTest s'arrêtent avec un code non nul si un test échoue. Chaque GameTest tourne dans son propre batch
 (ils partagent l'état global du `BountyManager`) et commence par `TestSupport.reset()`.
@@ -85,6 +85,13 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 | ✅ | Alerte à la cible en ligne, à elle seule | `onlineTargetGetsTheAlert` | Nom du commanditaire selon `alertRevealsSponsor` |
 | ✅ | Alerte à la connexion d'une cible | `offlineTargetIsAlertedOnLogin` | |
 | ✅ | Ancien format de sauvegarde (une seule récompense) | `BountySavedDataTest.legacySingleRewardFormatIsRead` | Les mondes créés avec la 0.1 restent lisibles |
+
+### Succès (`AdvancementTests`)
+| | Exigence | Test(s) | Note |
+|---|---|---|---|
+| ✅ | « Contrats de sang » (signer) et « Le prix du sang » (encaisser) | `signingAndCollectingGrantAdvancements` | |
+| ✅ | « Ennemi public n°1 » (3 primes actives sur soi) | `threeBountiesMakeYouPublicEnemy` | |
+| ✅ | « Livraison express » (prime encaissée au canon) | `CbcCompatTests.shotAfterRecentInteractionCreditsOperator`, `cannonAdvancementOnlyExistsWithCbc` | Chargé seulement si CBC est présent |
 
 ### Réseau
 | | Exigence | Test(s) | Note |

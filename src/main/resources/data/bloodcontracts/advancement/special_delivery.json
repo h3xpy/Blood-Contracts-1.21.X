@@ -1,0 +1,38 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "createbigcannons"
+    }
+  ],
+  "parent": "bloodcontracts:blood_money",
+  "display": {
+    "icon": {
+      "id": "createbigcannons:he_shell",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.bloodcontracts.special_delivery.title"
+    },
+    "description": {
+      "translate": "advancements.bloodcontracts.special_delivery.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "artillery": {
+      "trigger": "bloodcontracts:bounty",
+      "conditions": {
+        "event": "artillery"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "artillery"
+    ]
+  ]
+}

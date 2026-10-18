@@ -77,5 +77,13 @@
   "bloodcontracts.alert.count": "%s primes sur ta tête",
   "bloodcontracts.alert.login": "%s prime(s) sur ta tête. Surveille tes arrières.",
   "bloodcontracts.toast.rewards.title": "Prix du sang",
-  "bloodcontracts.toast.rewards.body": "%s à réclamer au tableau (B)"
+  "bloodcontracts.toast.rewards.body": "%s à réclamer au tableau (B)",
+  "advancements.bloodcontracts.root.title": "Contrats de sang",
+  "advancements.bloodcontracts.root.description": "Signez votre premier contrat sur la tête d'un « ami »",
+  "advancements.bloodcontracts.blood_money.title": "Le prix du sang",
+  "advancements.bloodcontracts.blood_money.description": "Encaissez une prime en éliminant sa cible",
+  "advancements.bloodcontracts.most_wanted.title": "Ennemi public n°1",
+  "advancements.bloodcontracts.most_wanted.description": "Ayez 3 primes actives sur votre tête en même temps. Le serveur entier vous en veut",
+  "advancements.bloodcontracts.special_delivery.title": "Livraison express",
+  "advancements.bloodcontracts.special_delivery.description": "Encaissez une prime d'un tir de canon. Create a ses limites, pas vous"
 }

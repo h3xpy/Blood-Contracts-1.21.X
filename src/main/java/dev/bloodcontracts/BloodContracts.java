@@ -23,6 +23,7 @@ public class BloodContracts {
         container.registerConfig(ModConfig.Type.SERVER, BCConfig.SPEC);
         BCAttachments.register(modBus);
         BCMenus.register(modBus);
+        dev.bloodcontracts.advancement.BountyTrigger.register(modBus);
         modBus.addListener(BCNetwork::register);
         BountyEvents.register(NeoForge.EVENT_BUS);
         dev.bloodcontracts.core.BountyNotifier.set(new dev.bloodcontracts.network.NetworkNotifier());

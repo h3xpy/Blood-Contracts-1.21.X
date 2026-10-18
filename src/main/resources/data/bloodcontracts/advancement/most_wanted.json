@@ -1,0 +1,33 @@
+{
+  "parent": "bloodcontracts:root",
+  "display": {
+    "icon": {
+      "id": "minecraft:wither_skeleton_skull",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.bloodcontracts.most_wanted.title"
+    },
+    "description": {
+      "translate": "advancements.bloodcontracts.most_wanted.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "wanted": {
+      "trigger": "bloodcontracts:bounty",
+      "conditions": {
+        "event": "wanted",
+        "min": 3
+      }
+    }
+  },
+  "requirements": [
+    [
+      "wanted"
+    ]
+  ]
+}

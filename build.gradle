@@ -48,7 +48,7 @@ repositories {
 }
 
 base {
-    archivesName = mod_id
+    archivesName = "${mod_id}-neoforge-${minecraft_version}"
 }
 
 // GameTests live in their own source set (and their own tiny mod) so they never ship in the release jar.

@@ -15,7 +15,7 @@ objet de son inventaire ; celui qui tue la cible le reçoit. Le serveur ne crée
 - Commandes : `/bounty place <joueur>` (objet en main, cible en ligne ou non), `/bounty list`, `/bounty info <id>`,
   `/bounty cancel <id>`, `/bounty claim`, `/bounty history`, `/bounty gui`. Opérateurs : `/bounty admin list`, `/bounty admin cancel <id>`.
 
-Configuration serveur : `config/bloodcontracts-server.toml` dans le monde (fenêtre d'attribution, verrou d'annulation,
+Configuration serveur : `serverconfig/bloodcontracts-server.toml` dans le dossier du monde (fenêtre d'attribution, verrou d'annulation,
 limite par commanditaire, blacklist, familiers, visibilité du commanditaire, nom du commanditaire dans l'alerte
 `alertRevealsSponsor`, taille de l'historique).
 Les dégâts « environnementaux » (vide, chute, lave…) qui peuvent être attribués au dernier attaquant sont définis par le tag

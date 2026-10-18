@@ -77,5 +77,13 @@
   "bloodcontracts.alert.count": "%s bounties on your head",
   "bloodcontracts.alert.login": "%s bounty(ies) on your head. Watch your back.",
   "bloodcontracts.toast.rewards.title": "Blood money",
-  "bloodcontracts.toast.rewards.body": "%s to claim on the board (B)"
+  "bloodcontracts.toast.rewards.body": "%s to claim on the board (B)",
+  "advancements.bloodcontracts.root.title": "Blood Contracts",
+  "advancements.bloodcontracts.root.description": "Sign your first contract on a \"friend\"'s head",
+  "advancements.bloodcontracts.blood_money.title": "Blood Money",
+  "advancements.bloodcontracts.blood_money.description": "Collect a bounty by taking out its target",
+  "advancements.bloodcontracts.most_wanted.title": "Public Enemy No. 1",
+  "advancements.bloodcontracts.most_wanted.description": "Have 3 active bounties on your head at once. The whole server wants you gone",
+  "advancements.bloodcontracts.special_delivery.title": "Special Delivery",
+  "advancements.bloodcontracts.special_delivery.description": "Collect a bounty with a cannon shot. Create has limits, you don't"
 }
