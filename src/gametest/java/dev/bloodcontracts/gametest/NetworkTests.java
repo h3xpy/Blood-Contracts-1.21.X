@@ -39,7 +39,7 @@ public class NetworkTests {
     private static BountyCreateMenu openMenuWith(ServerPlayer player, ItemStack stack) {
         ServerPayloadHandler.handleOpenCreate(player);
         BountyCreateMenu menu = (BountyCreateMenu) player.containerMenu;
-        menu.rewardContainer().setItem(BountyCreateMenu.REWARD_SLOT, stack);
+        menu.rewardContainer().setItem(0, stack);
         return menu;
     }
 
@@ -57,7 +57,7 @@ public class NetworkTests {
 
         helper.assertTrue(result.isOk(), "valid request refused: " + result.error());
         helper.assertTrue(menu.rewardContainer().getItem(0).isEmpty(), "slot not emptied");
-        helper.assertTrue(ItemStack.matches(expected, result.value().reward()), "escrow differs from the slot content");
+        helper.assertTrue(ItemStack.matches(expected, result.value().rewards().get(0)), "escrow differs from the slot content");
         helper.assertTrue(sponsor.containerMenu == sponsor.inventoryMenu, "menu not closed after creation");
         helper.assertTrue(countInInventory(sponsor, marker) == 0, "closing the menu gave the item back after escrow");
         assertConserved(helper, manager, marker, 4);
@@ -116,6 +116,7 @@ public class NetworkTests {
 
         helper.assertTrue(ServerPayloadHandler.handleCancel(sponsor, new CancelBountyRequest(b.id())).isOk(), "valid cancel refused");
         expectRefused(helper, ServerPayloadHandler.handleCancel(sponsor, new CancelBountyRequest(b.id())), BountyError.NOT_ACTIVE);
+        helper.assertTrue(ServerPayloadHandler.handleClaim(sponsor, new BCPayloads.ClaimRewardRequest(java.util.Optional.empty())).isOk(), "claim refused");
         helper.assertTrue(countInInventory(sponsor, marker) == 2, "refund wrong");
         assertConserved(helper, manager, marker, 2);
         helper.succeed();
@@ -142,7 +143,7 @@ public class NetworkTests {
         BountyListPayload decoded = BountyListPayload.STREAM_CODEC.decode(buf);
         helper.assertTrue(decoded.active().size() == 1, "decode lost entries");
         var v = decoded.active().get(0);
-        helper.assertTrue(v.reward().is(Items.DIAMOND) && v.reward().getCount() == 5 && v.targetName().equals(target.getGameProfile().getName()),
+        helper.assertTrue(v.icon().is(Items.DIAMOND) && v.icon().getCount() == 5 && v.targetName().equals(target.getGameProfile().getName()),
                 "decoded view differs");
 
         // A request payload round-trips too and carries nothing but the UUID.

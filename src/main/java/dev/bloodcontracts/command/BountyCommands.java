@@ -1,6 +1,5 @@
 package dev.bloodcontracts.command;
 
-import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -14,7 +13,6 @@ import dev.bloodcontracts.core.BountyResult;
 import dev.bloodcontracts.core.BountyState;
 import dev.bloodcontracts.network.ServerPayloadHandler;
 import java.text.SimpleDateFormat;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -24,8 +22,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.commands.arguments.GameProfileArgument;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,8 +34,8 @@ import net.minecraft.world.entity.player.Inventory;
 public final class BountyCommands {
     private static final SimpleCommandExceptionType UNKNOWN_ID =
             new SimpleCommandExceptionType(Component.translatable("bloodcontracts.error.not_found"));
-    private static final SimpleCommandExceptionType ONE_TARGET =
-            new SimpleCommandExceptionType(Component.translatable("bloodcontracts.command.one_target"));
+    private static final SimpleCommandExceptionType UNKNOWN_PLAYER =
+            new SimpleCommandExceptionType(Component.translatable("bloodcontracts.error.unknown_target"));
 
     private BountyCommands() {}
 
@@ -53,9 +50,13 @@ public final class BountyCommands {
         SuggestionProvider<CommandSourceStack> anyIds = (ctx, builder) -> SharedSuggestionProvider.suggest(
                 Stream.concat(manager(ctx).activeBounties().stream(), manager(ctx).history().stream()).map(Bounty::shortId), builder);
 
+        // Any player who ever joined, online or not: bounties on offline players are allowed.
+        SuggestionProvider<CommandSourceStack> knownNames = (ctx, builder) -> SharedSuggestionProvider.suggest(
+                manager(ctx).data().knownPlayers().values(), builder);
+
         dispatcher.register(Commands.literal("bounty")
                 .then(Commands.literal("place")
-                        .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                        .then(Commands.argument("target", StringArgumentType.word()).suggests(knownNames)
                                 .executes(BountyCommands::place)))
                 .then(Commands.literal("list").executes(ctx -> list(ctx, false)))
                 .then(Commands.literal("info")
@@ -65,6 +66,7 @@ public final class BountyCommands {
                         .then(Commands.argument("id", StringArgumentType.word()).suggests(ownActiveIds)
                                 .executes(ctx -> cancel(ctx, false))))
                 .then(Commands.literal("history").executes(BountyCommands::history))
+                .then(Commands.literal("claim").executes(BountyCommands::claim))
                 .then(Commands.literal("gui").executes(ctx -> {
                     ServerPayloadHandler.sendList(ctx.getSource().getPlayerOrException(), true, null, false);
                     return 1;
@@ -83,21 +85,18 @@ public final class BountyCommands {
 
     private static int place(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer sponsor = ctx.getSource().getPlayerOrException();
-        Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "target");
-        if (profiles.size() != 1) {
-            throw ONE_TARGET.create();
-        }
-        GameProfile target = profiles.iterator().next();
+        String targetName = StringArgumentType.getString(ctx, "target");
+        UUID target = manager(ctx).findKnownPlayer(targetName).orElseThrow(UNKNOWN_PLAYER::create);
         Inventory inv = sponsor.getInventory();
         int slot = inv.selected; // main hand
-        BountyResult<Bounty> result = manager(ctx).create(sponsor, target.getId(), inv, slot);
+        BountyResult<Bounty> result = manager(ctx).create(sponsor, target, inv, slot);
         if (!result.isOk()) {
             ctx.getSource().sendFailure(result.error().message());
             return 0;
         }
         Bounty b = result.value();
         ctx.getSource().sendSuccess(() -> Component.translatable("bloodcontracts.command.placed",
-                reward(b), Component.literal(target.getName()).withStyle(ChatFormatting.RED), id(b)), false);
+                reward(b), Component.literal(manager(ctx).nameOf(target)).withStyle(ChatFormatting.RED), id(b)), false);
         return 1;
     }
 
@@ -165,6 +164,17 @@ public final class BountyCommands {
         return 1;
     }
 
+    private static int claim(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        BountyResult<Integer> result = manager(ctx).claimRewards(player, Optional.empty());
+        if (!result.isOk()) {
+            ctx.getSource().sendFailure(result.error().message());
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("bloodcontracts.gui.claimed", result.value()), false);
+        return result.value();
+    }
+
     private static int history(CommandContext<CommandSourceStack> ctx) {
         BountyManager manager = manager(ctx);
         List<Bounty> history = manager.history();
@@ -214,11 +224,15 @@ public final class BountyCommands {
     }
 
     private static Component reward(Bounty b) {
-        if (!b.reward().isEmpty()) {
-            return Component.literal(b.reward().getCount() + "x ").append(b.reward().getDisplayName()).withStyle(ChatFormatting.GOLD);
+        MutableComponent out = Component.empty().withStyle(ChatFormatting.GOLD);
+        List<ItemStack> stacks = b.displayStacks();
+        for (int i = 0; i < stacks.size(); i++) {
+            if (i > 0) {
+                out.append(", ");
+            }
+            out.append(Component.literal(stacks.get(i).getCount() + "x ")).append(stacks.get(i).getHoverName());
         }
-        var item = BuiltInRegistries.ITEM.get(b.rewardItem());
-        return Component.literal(b.rewardCount() + "x ").append(Component.translatable(item.getDescriptionId())).withStyle(ChatFormatting.GOLD);
+        return out;
     }
 
     private static String date(long millis) {

@@ -2,11 +2,16 @@
 
 Dernière exécution : 2026-10-18 (NeoForge 21.1.248).
 
+Note sur le run de compat : Ritchie's Projectile Library force-charge les chunks traversés par un obus puis retire ce
+chargement forcé, y compris sur une zone de GameTest voisine. Ce test attendrait alors indéfiniment ses chunks. Les tests
+de canon utilisent donc un champ de tir de 20 blocs (`cannon_range`) avec un mur d'obsidienne : les obus ne quittent
+jamais leur zone.
+
 | Suite | Commande | Résultat |
 |---|---|---|
-| JUnit (logique pure) | `./gradlew test` | ✅ 36/36 |
-| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 40/40 |
-| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 40 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 48/48 |
+| JUnit (logique pure) | `./gradlew test` | ✅ 40/40 |
+| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 50/50 |
+| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 50 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 58/58 |
 
 Les serveurs de GameTest s'arrêtent avec un code non nul si un test échoue. Chaque GameTest tourne dans son propre batch
 (ils partagent l'état global du `BountyManager`) et commence par `TestSupport.reset()`.
@@ -68,6 +73,19 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 | ✅ | (ajout) Lanceur sans contraption (base de fusée More Shells) | `CbcCompatTests.rocketBaseLauncherCreditsOperator` | Niveau le plus proche : vrai bloc, vraie entité fusée |
 | ✅ | (ajout) Explosion d'une entité marquée sans propriétaire | `AttributionTests.explosionOfMarkedOwnerlessEntityCreditsMarkedPlayer`, `explosionOfOwnerlessEntityCreditsNobody` | Chemin `level.explode(obus, …)` des bombes More Shells |
 
+### Ajouts du 2026-10-18 (`FeatureTests`)
+| | Exigence | Test(s) | Note |
+|---|---|---|---|
+| ✅ | Plusieurs objets différents dans une prime | `expandedMenuEscrowsEveryStack`, `hunterClaimsEveryStackOfEveryBounty`, `BountyTest.severalStacksAreCopiedAndSummarized`, `BountySavedDataTest.severalRewardsSurviveRoundTrip` | Menu étendu à 9 emplacements, une livraison par pile |
+| ✅ | Un objet blacklisté parmi plusieurs : refus total, rien ne bouge | `oneBlacklistedStackRefusesTheWholeBounty` | |
+| ✅ | Replier le menu est refusé s'il cache des objets | `collapsingIsRefusedWhileExtraSlotsHoldItems` | |
+| ✅ | Récompenses à réclamer (pas dans l'inventaire) | `hunterClaimsEveryStackOfEveryBounty`, `claimsAreRevalidated`, scénarios d'attribution et d'annulation | Réclamation unitaire ou totale ; celle d'un autre, id inconnu, mort ou double réclamation sont refusés |
+| ✅ | Notification « à réclamer » (hors chat) | `hunterIsToldRewardsAreWaiting` | En ligne et à la reconnexion |
+| ✅ | Prime sur un joueur hors ligne | `bountyOnOfflinePlayerFromTheMenu`, `bountyOnOfflinePlayerByCommand` | Liste des joueurs connus envoyée au client ; commande insensible à la casse |
+| ✅ | Alerte à la cible en ligne, à elle seule | `onlineTargetGetsTheAlert` | Nom du commanditaire selon `alertRevealsSponsor` |
+| ✅ | Alerte à la connexion d'une cible | `offlineTargetIsAlertedOnLogin` | |
+| ✅ | Ancien format de sauvegarde (une seule récompense) | `BountySavedDataTest.legacySingleRewardFormatIsRead` | Les mondes créés avec la 0.1 restent lisibles |
+
 ### Réseau
 | | Exigence | Test(s) | Note |
 |---|---|---|---|
@@ -77,6 +95,8 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 
 ## Ce qui demande un humain
 
+- ❌ (non automatisable) **Rendu et son de l'alerte « prime sur ta tête »**, du toast « à réclamer », de l'onglet « À réclamer »
+  et de l'écran de création (recherche, joueurs hors ligne grisés, bouton « + objets »).
 - ❌ (non automatisable) **Rendu visuel des écrans** (thème « avis de recherche » : parchemin, têtes des cibles, tampons ;
   textures générées par `tools/make_gui_textures.py`) : tableau des primes (touche `B` ou `/bounty gui`) et écran de création.
   À vérifier dans un client, de préférence à deux en LAN (voir README) : mise en page, défilement, info-bulles, bouton « Annuler » actif uniquement sur ses propres primes.

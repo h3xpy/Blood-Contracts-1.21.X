@@ -63,6 +63,19 @@ public final class TestPlayers {
         return player;
     }
 
+    /** Drains the payloads of type {@code type} sent to {@code player} since the last call. */
+    public static <T extends net.minecraft.network.protocol.common.custom.CustomPacketPayload> List<T> sentPayloads(ServerPlayer player, Class<T> type) {
+        List<T> found = new ArrayList<>();
+        EmbeddedChannel channel = (EmbeddedChannel) player.connection.getConnection().channel();
+        Object msg;
+        while ((msg = channel.readOutbound()) != null) {
+            if (msg instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket packet && type.isInstance(packet.payload())) {
+                found.add(type.cast(packet.payload()));
+            }
+        }
+        return found;
+    }
+
     /** Disconnects the player (fires {@code PlayerLoggedOutEvent}). */
     public static void logout(ServerPlayer player) {
         MinecraftServer server = player.getServer();

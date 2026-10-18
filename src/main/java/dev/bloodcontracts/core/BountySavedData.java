@@ -184,8 +184,10 @@ public class BountySavedData extends SavedData {
         tag.putUUID("Id", b.id());
         tag.putUUID("Sponsor", b.sponsor());
         tag.putUUID("Target", b.target());
-        if (!b.reward().isEmpty()) {
-            tag.put("Reward", b.reward().save(registries));
+        if (!b.rewards().isEmpty()) {
+            ListTag rewards = new ListTag();
+            b.rewards().forEach(stack -> rewards.add(stack.save(registries)));
+            tag.put("Rewards", rewards);
         }
         tag.putLong("CreatedAt", b.createdAt());
         tag.putString("State", b.state().name());
@@ -193,36 +195,66 @@ public class BountySavedData extends SavedData {
             tag.putUUID("ClaimedBy", b.claimedBy());
         }
         tag.putLong("ClosedAt", b.closedAt());
-        tag.putString("RewardItem", b.rewardItem().toString());
-        tag.putInt("RewardCount", b.rewardCount());
+        ListTag summary = new ListTag();
+        for (Bounty.RewardSummary s : b.summary()) {
+            CompoundTag entry = new CompoundTag();
+            entry.putString("Item", s.item().toString());
+            entry.putInt("Count", s.count());
+            summary.add(entry);
+        }
+        tag.put("Summary", summary);
         return tag;
     }
 
+    /**
+     * Reads a bounty; also accepts the 0.1 single-reward format ({@code Reward}, {@code RewardItem}, {@code RewardCount}).
+     * Returns null if any reward stack cannot be decoded: the caller keeps the raw tag.
+     */
     static @Nullable Bounty readBounty(CompoundTag tag, HolderLookup.Provider registries) {
         try {
             BountyState state = BountyState.valueOf(tag.getString("State"));
-            ItemStack reward = ItemStack.EMPTY;
+            List<ItemStack> rewards = new ArrayList<>();
             if (state == BountyState.ACTIVE) {
-                Optional<ItemStack> parsed = tag.contains("Reward", Tag.TAG_COMPOUND)
-                        ? ItemStack.parse(registries, tag.getCompound("Reward"))
-                        : Optional.empty();
-                if (parsed.isEmpty() || parsed.get().isEmpty()) {
+                List<CompoundTag> raw = new ArrayList<>();
+                if (tag.contains("Rewards", Tag.TAG_LIST)) {
+                    tag.getList("Rewards", Tag.TAG_COMPOUND).forEach(t -> raw.add((CompoundTag) t));
+                } else if (tag.contains("Reward", Tag.TAG_COMPOUND)) {
+                    raw.add(tag.getCompound("Reward"));
+                }
+                for (CompoundTag stackTag : raw) {
+                    Optional<ItemStack> parsed = ItemStack.parse(registries, stackTag);
+                    if (parsed.isEmpty() || parsed.get().isEmpty()) {
+                        return null;
+                    }
+                    rewards.add(parsed.get());
+                }
+                if (rewards.isEmpty()) {
                     return null;
                 }
-                reward = parsed.get();
             }
-            ResourceLocation rewardItem = ResourceLocation.tryParse(tag.getString("RewardItem"));
+            List<Bounty.RewardSummary> summary = new ArrayList<>();
+            if (tag.contains("Summary", Tag.TAG_LIST)) {
+                for (Tag t : tag.getList("Summary", Tag.TAG_COMPOUND)) {
+                    CompoundTag entry = (CompoundTag) t;
+                    ResourceLocation item = ResourceLocation.tryParse(entry.getString("Item"));
+                    summary.add(new Bounty.RewardSummary(item != null ? item : ResourceLocation.withDefaultNamespace("air"), entry.getInt("Count")));
+                }
+            } else if (tag.contains("RewardItem")) {
+                ResourceLocation item = ResourceLocation.tryParse(tag.getString("RewardItem"));
+                summary.add(new Bounty.RewardSummary(item != null ? item : ResourceLocation.withDefaultNamespace("air"), tag.getInt("RewardCount")));
+            } else {
+                rewards.forEach(r -> summary.add(Bounty.RewardSummary.of(r)));
+            }
             return new Bounty(
                     tag.getUUID("Id"),
                     tag.getUUID("Sponsor"),
                     tag.getUUID("Target"),
-                    reward,
+                    rewards,
                     tag.getLong("CreatedAt"),
                     state,
                     tag.hasUUID("ClaimedBy") ? tag.getUUID("ClaimedBy") : null,
                     tag.getLong("ClosedAt"),
-                    rewardItem != null ? rewardItem : ResourceLocation.withDefaultNamespace("air"),
-                    tag.getInt("RewardCount"));
+                    summary);
         } catch (RuntimeException e) {
             BloodContracts.LOGGER.error("Blood Contracts: malformed bounty entry {}", tag, e);
             return null;

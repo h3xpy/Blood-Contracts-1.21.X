@@ -25,6 +25,7 @@ public class BloodContracts {
         BCMenus.register(modBus);
         modBus.addListener(BCNetwork::register);
         BountyEvents.register(NeoForge.EVENT_BUS);
+        dev.bloodcontracts.core.BountyNotifier.set(new dev.bloodcontracts.network.NetworkNotifier());
         // Optional compat: the compat classes are only touched when their mod is present.
         if (ModList.get().isLoaded(dev.bloodcontracts.compat.cbc.CbcCompat.CBC)) {
             dev.bloodcontracts.compat.cbc.CbcCompat.init(NeoForge.EVENT_BUS);

@@ -15,7 +15,9 @@ public enum BountyError {
     NOT_ACTIVE,
     NOT_OWNER,
     COMBAT_LOCKED,
-    NO_MENU;
+    NO_MENU,
+    NOTHING_TO_CLAIM,
+    NOT_ALIVE;
 
     public String translationKey() {
         return "bloodcontracts.error." + name().toLowerCase(java.util.Locale.ROOT);

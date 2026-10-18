@@ -18,6 +18,7 @@ public final class BCConfig {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> REWARD_BLACKLIST;
     public static final ModConfigSpec.BooleanValue CREDIT_TAMED_PETS;
     public static final ModConfigSpec.BooleanValue SHOW_SPONSOR;
+    public static final ModConfigSpec.BooleanValue ALERT_REVEALS_SPONSOR;
     public static final ModConfigSpec.IntValue HISTORY_SIZE;
     public static final ModConfigSpec.BooleanValue DEBUG_LOGGING;
 
@@ -49,6 +50,9 @@ public final class BCConfig {
         SHOW_SPONSOR = b
                 .comment("Show the sponsor's name in the public bounty list.")
                 .define("showSponsor", false);
+        ALERT_REVEALS_SPONSOR = b
+                .comment("The alert shown to an online target when a bounty is placed on them names the sponsor (independent of showSponsor).")
+                .define("alertRevealsSponsor", true);
         HISTORY_SIZE = b
                 .comment("How many closed (claimed or cancelled) bounties are kept in the history.")
                 .defineInRange("historySize", 200, 0, 100000);
@@ -73,6 +77,7 @@ public final class BCConfig {
     public static List<? extends String> rewardBlacklist() { return get(REWARD_BLACKLIST); }
     public static boolean creditTamedPets() { return get(CREDIT_TAMED_PETS); }
     public static boolean showSponsor() { return get(SHOW_SPONSOR); }
+    public static boolean alertRevealsSponsor() { return get(ALERT_REVEALS_SPONSOR); }
     public static int historySize() { return get(HISTORY_SIZE); }
     public static boolean debug() { return get(DEBUG_LOGGING); }
 }

@@ -195,6 +195,13 @@ dependencies {
     gametestCompatImplementation "maven.modrinth:create-big-cannons:${cbc_version}"
     gametestCompatImplementation "maven.modrinth:rpl:${rpl_version}"
     gametestCompatImplementation "curse.maven:cbc-enchanced-shells-create-big-cannons-1489732:${cbc_more_shells_file}"
+    // Playable dev clients/servers (runClient, runClient2, runClient3, runServer) also get the optional mods, to test
+    // bounties with their items. Never published as dependencies; the main GameTest run does not see them.
+    localRuntime "maven.modrinth:create:${create_version}"
+    localRuntime "maven.modrinth:create-big-cannons:${cbc_version}"
+    localRuntime "maven.modrinth:rpl:${rpl_version}"
+    localRuntime "curse.maven:cbc-enchanced-shells-create-big-cannons-1489732:${cbc_more_shells_file}"
+
     createJar("maven.modrinth:create:${create_version}") { transitive = false }
     // Registrate, Flywheel and Ponder are nested inside the Create jar; the compat GameTests need them to compile.
     gametestCompatCompileOnly fileTree(layout.buildDirectory.dir('createNested')) { include '*.jar' builtBy extractCreateNested }

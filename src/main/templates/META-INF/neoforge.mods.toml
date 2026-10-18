@@ -91,3 +91,11 @@ Player-funded bounties: sponsors escrow an item, hunters claim it by killing the
 # stop your mod loading on the server for example.
 #[features.${mod_id}]
 #openGLVersion="[3.2,)"
+
+# Optional: kill attribution for Create Big Cannons shots (and addons such as CBC Enchanced Shells).
+[[dependencies.${mod_id}]]
+    modId="createbigcannons"
+    type="optional"
+    versionRange="[5.11.4,)"
+    ordering="NONE"
+    side="BOTH"

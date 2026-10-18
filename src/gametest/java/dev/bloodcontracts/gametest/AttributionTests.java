@@ -42,6 +42,9 @@ public class AttributionTests {
             Bounty b = manager.findAny(bounty.id()).orElseThrow();
             helper.assertTrue(b.state() == BountyState.CLAIMED, "bounty not claimed (state " + b.state() + ")");
             helper.assertTrue(expected.getUUID().equals(b.claimedBy()), "claimed by the wrong player: " + b.claimedBy());
+            helper.assertTrue(TestSupport.countOwed(manager, expected, marker) == 3, "reward not waiting for the hunter");
+            assertConserved(helper, manager, marker, 3);
+            TestSupport.claimAll(helper, manager, expected);
             helper.assertTrue(TestSupport.countInInventory(expected, marker) == 3, "hunter did not receive the reward");
             assertConserved(helper, manager, marker, 3);
         }

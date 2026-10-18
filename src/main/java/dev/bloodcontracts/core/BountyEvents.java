@@ -21,7 +21,6 @@ public final class BountyEvents {
         gameBus.addListener(EventPriority.LOW, BountyEvents::onDeath);
         gameBus.addListener(BountyEvents::onLogin);
         gameBus.addListener(BountyEvents::onLogout);
-        gameBus.addListener(BountyEvents::onRespawn);
         gameBus.addListener(BountyEvents::onServerTick);
         gameBus.addListener(BountyEvents::onServerStopped);
         gameBus.addListener(BountyEvents::onRegisterCommands);
@@ -48,12 +47,6 @@ public final class BountyEvents {
     private static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             BountyManager.get(player.server).onPlayerLogout(player);
-        }
-    }
-
-    private static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
-            BountyManager.get(player.server).onPlayerRespawn(player);
         }
     }
 

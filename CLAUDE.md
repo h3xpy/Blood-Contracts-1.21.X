@@ -83,10 +83,17 @@ config/                  // ModConfigSpec (serveur)
 - Ordre impératif : **changer l'état et créer la livraison, puis marquer les données comme modifiées, et seulement ensuite tenter la remise**.
 
 ### Livraison (`PendingDelivery`)
-- Tout objet sortant du séquestre passe par là, qu'il s'agisse d'un gain ou d'une annulation.
-- Si le joueur est en ligne : ajout à l'inventaire, sinon objet lâché à ses pieds, puis la livraison est supprimée.
-- Si le joueur est hors ligne : la livraison est conservée et remise à la connexion (`PlayerLoggedInEvent`).
+- Tout objet sortant du séquestre passe par là, qu'il s'agisse d'un gain ou d'une annulation (une livraison par pile).
+- **Décision du 2026-10-18** : rien n'est poussé automatiquement dans l'inventaire. La livraison attend dans l'onglet
+  « À réclamer » du tableau, une notification (toast, pas le chat) prévient le joueur, en ligne ou à sa connexion.
+  `BountyManager.claimRewards` remet l'objet (inventaire, sinon au sol à ses pieds) puis supprime la livraison.
 - Cela traite d'un même mécanisme le chasseur déconnecté, le commanditaire déconnecté et le crash entre la mort et la remise.
+
+### Ajouts du 2026-10-18
+- Une prime peut offrir jusqu'à 9 piles différentes (menu de création : 1 emplacement, « + objets » pour 9).
+- Primes sur des joueurs hors ligne : tout joueur déjà connecté (registre persisté dans `BountySavedData`).
+- Alerte plein écran « stressante » pour la cible en ligne (ou à sa connexion), hors chat ; le nom du commanditaire
+  y figure si `alertRevealsSponsor` (true par défaut).
 
 ### Historique
 - Les primes `CLAIMED` et `CANCELLED` restent dans le `SavedData`, avec chasseur et date, sans l'objet (il est livré). Taille bornée en config (`historySize`, 200 par défaut). Les plus anciennes sont purgées.

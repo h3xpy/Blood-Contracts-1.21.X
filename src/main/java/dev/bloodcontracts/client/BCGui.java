@@ -183,6 +183,8 @@ final class BCGui {
     /** Tab drawn as a parchment label: the selected tab merges into the page, the other one is darker. */
     static class TabButton extends Button {
         boolean selected;
+        /** Something waits behind this tab: pulsing blood-drop badge. */
+        boolean attention;
 
         TabButton(int x, int y, int w, int h, Component message, OnPress onPress) {
             super(x, y, w, h, message, onPress, DEFAULT_NARRATION);
@@ -201,6 +203,15 @@ final class BCGui {
             Font font = Minecraft.getInstance().font;
             Component msg = getMessage();
             g.drawString(font, msg, x + (w - font.width(msg)) / 2, y + (h - 8) / 2 + 1, selected ? BLOOD : INK, false);
+            if (attention) {
+                float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 180.0));
+                g.pose().pushPose();
+                g.pose().translate(x + w - 9, y - 5, 0);
+                float scale = 0.75f + 0.2f * pulse;
+                g.pose().scale(scale, scale, 1);
+                drop(g, -8, -2);
+                g.pose().popPose();
+            }
         }
     }
 }

@@ -122,6 +122,21 @@ public final class BountyManager {
         return cache != null && cache.get(uuid).isPresent();
     }
 
+    /** Resolves a player name (case-insensitive) among online players, players who ever joined, and the profile cache. */
+    public Optional<UUID> findKnownPlayer(String name) {
+        ServerPlayer online = server.getPlayerList().getPlayerByName(name);
+        if (online != null) {
+            return Optional.of(online.getUUID());
+        }
+        for (var e : data().knownPlayers().entrySet()) {
+            if (e.getValue().equalsIgnoreCase(name)) {
+                return Optional.of(e.getKey());
+            }
+        }
+        GameProfileCache cache = server.getProfileCache();
+        return cache == null ? Optional.empty() : cache.get(name).map(com.mojang.authlib.GameProfile::getId);
+    }
+
     public String nameOf(UUID uuid) {
         ServerPlayer online = server.getPlayerList().getPlayer(uuid);
         if (online != null) {
@@ -143,12 +158,20 @@ public final class BountyManager {
 
     // ---------------------------------------------------------------- creation
 
-    /**
-     * Places a bounty funded by the stack in {@code source[slot]}. The whole stack is moved to escrow in this call;
-     * on any validation failure, nothing moves.
-     */
+    /** Places a bounty funded by the stack in {@code source[slot]} (command: main hand). */
     public BountyResult<Bounty> create(ServerPlayer sponsor, UUID target, Container source, int slot) {
-        if (slot < 0 || slot >= source.getContainerSize()) {
+        return create(sponsor, target, source, List.of(slot));
+    }
+
+    /**
+     * Places a bounty funded by every non-empty stack among {@code source[slots]} (creation menu: 1 slot, or up to
+     * {@link Bounty#MAX_REWARD_STACKS} when expanded). All the stacks move to escrow in this call; if any check fails,
+     * nothing moves.
+     */
+    public BountyResult<Bounty> create(ServerPlayer sponsor, UUID target, Container source, List<Integer> slots) {
+        if (slots.isEmpty() || slots.size() > Bounty.MAX_REWARD_STACKS
+                || slots.stream().anyMatch(i -> i < 0 || i >= source.getContainerSize())
+                || slots.stream().distinct().count() != slots.size()) {
             return BountyResult.fail(BountyError.INVALID_SLOT);
         }
         if (sponsor.getUUID().equals(target)) {
@@ -157,30 +180,44 @@ public final class BountyManager {
         if (!isKnownPlayer(target)) {
             return BountyResult.fail(BountyError.UNKNOWN_TARGET);
         }
-        ItemStack stack = source.getItem(slot);
-        if (stack.isEmpty()) {
+        List<Integer> filled = new ArrayList<>();
+        for (int slot : slots) {
+            ItemStack stack = source.getItem(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            if (stack.getCount() <= 0 || stack.getCount() > stack.getMaxStackSize()) {
+                return BountyResult.fail(BountyError.INVALID_QUANTITY);
+            }
+            if (BCConfig.rewardBlacklist().contains(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) {
+                return BountyResult.fail(BountyError.BLACKLISTED);
+            }
+            filled.add(slot);
+        }
+        if (filled.isEmpty()) {
             return BountyResult.fail(BountyError.EMPTY_SLOT);
-        }
-        if (stack.getCount() <= 0 || stack.getCount() > stack.getMaxStackSize()) {
-            return BountyResult.fail(BountyError.INVALID_QUANTITY);
-        }
-        String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        if (BCConfig.rewardBlacklist().contains(itemId)) {
-            return BountyResult.fail(BountyError.BLACKLISTED);
         }
         if (activeBy(sponsor.getUUID()).size() >= BCConfig.maxActiveBountiesPerSponsor()) {
             return BountyResult.fail(BountyError.LIMIT_REACHED);
         }
 
-        // Every check passed: move the item into escrow in one go.
-        Bounty bounty = Bounty.create(UUID.randomUUID(), sponsor.getUUID(), target, stack, System.currentTimeMillis());
-        source.setItem(slot, ItemStack.EMPTY);
+        // Every check passed: move every stack into escrow in one go.
+        List<ItemStack> rewards = filled.stream().map(source::getItem).toList();
+        Bounty bounty = Bounty.create(UUID.randomUUID(), sponsor.getUUID(), target, rewards, System.currentTimeMillis());
+        for (int slot : filled) {
+            source.setItem(slot, ItemStack.EMPTY);
+        }
         source.setChanged();
         BountySavedData data = data();
         data.putActive(bounty);
         data.setDirty();
         activeTargets = null;
-        debug("created bounty {} sponsor={} target={} reward={}x{}", bounty.id(), bounty.sponsor(), target, itemId, bounty.rewardCount());
+        debug("created bounty {} sponsor={} target={} rewards={}", bounty.id(), bounty.sponsor(), target, bounty.summary());
+
+        ServerPlayer onlineTarget = server.getPlayerList().getPlayer(target);
+        if (onlineTarget != null) {
+            BountyNotifier.get().bountyPlaced(onlineTarget, bounty, nameOf(sponsor.getUUID()));
+        }
         return BountyResult.ok(bounty);
     }
 
@@ -205,16 +242,17 @@ public final class BountyManager {
             return BountyResult.fail(BountyError.COMBAT_LOCKED);
         }
 
-        ItemStack refund = bounty.reward().copy();
         Bounty closed = bounty.cancel(System.currentTimeMillis());
         data.removeActive(bountyId);
         data.addHistory(closed, BCConfig.historySize());
-        data.addDelivery(new PendingDelivery(UUID.randomUUID(), bounty.sponsor(), refund, bountyId, PendingDelivery.Reason.REFUND));
+        for (ItemStack refund : bounty.rewards()) {
+            data.addDelivery(new PendingDelivery(UUID.randomUUID(), bounty.sponsor(), refund.copy(), bountyId, PendingDelivery.Reason.REFUND));
+        }
         data.setDirty();
         activeTargets = null;
         debug("cancelled bounty {} by {} (operator={})", bountyId, actor, asOperator);
 
-        deliverPending(bounty.sponsor());
+        notifyRewardsAvailable(bounty.sponsor());
         return BountyResult.ok(closed);
     }
 
@@ -285,48 +323,68 @@ public final class BountyManager {
             if (!bounty.isEligibleHunter(hunter)) {
                 continue;
             }
-            ItemStack reward = bounty.reward().copy();
             Bounty closed = bounty.claim(hunter, now);
             data.removeActive(bounty.id());
             data.addHistory(closed, BCConfig.historySize());
-            data.addDelivery(new PendingDelivery(UUID.randomUUID(), hunter, reward, bounty.id(), PendingDelivery.Reason.REWARD));
+            for (ItemStack reward : bounty.rewards()) {
+                data.addDelivery(new PendingDelivery(UUID.randomUUID(), hunter, reward.copy(), bounty.id(), PendingDelivery.Reason.REWARD));
+            }
             claimed.add(closed);
             debug("bounty {} claimed by {}", bounty.id(), hunter);
         }
         if (claimed.isEmpty()) {
             return claimed;
         }
-        // 2. Mark dirty. 3. Only then try to hand the items over.
+        // 2. Mark dirty. 3. Only then tell the hunter: the items wait in the board until they claim them.
         data.setDirty();
         activeTargets = null;
-        deliverPending(hunter);
+        notifyRewardsAvailable(hunter);
         return claimed;
     }
 
-    // ---------------------------------------------------------------- delivery
+    // ---------------------------------------------------------------- rewards to claim
 
-    /** Delivers everything owed to {@code recipient} if they are online and alive. Returns how many were delivered. */
-    public int deliverPending(UUID recipient) {
-        ServerPlayer player = server.getPlayerList().getPlayer(recipient);
-        return player == null ? 0 : deliverPending(player);
-    }
-
-    public int deliverPending(ServerPlayer player) {
+    /**
+     * Hands over what is owed to {@code player}: one delivery, or all of them when {@code deliveryId} is empty.
+     * Rewards and refunds wait in the board until claimed, so nothing ever lands in an inventory unannounced.
+     *
+     * @return the number of stacks handed over
+     */
+    public BountyResult<Integer> claimRewards(ServerPlayer player, Optional<UUID> deliveryId) {
         if (!player.isAlive() || player.hasDisconnected()) {
-            return 0;
+            return BountyResult.fail(BountyError.NOT_ALIVE);
+        }
+        List<PendingDelivery> owed = deliveriesFor(player.getUUID());
+        if (deliveryId.isPresent()) {
+            owed = owed.stream().filter(d -> d.id().equals(deliveryId.get())).toList();
+            if (owed.isEmpty()) {
+                return BountyResult.fail(BountyError.NOT_FOUND);
+            }
+        } else if (owed.isEmpty()) {
+            return BountyResult.fail(BountyError.NOTHING_TO_CLAIM);
         }
         BountySavedData data = data();
-        int delivered = 0;
-        for (PendingDelivery delivery : deliveriesFor(player.getUUID())) {
+        int handed = 0;
+        for (PendingDelivery delivery : owed) {
             if (!data.removeDelivery(delivery)) {
                 continue;
             }
             data.setDirty();
             give(player, delivery.stack().copy());
-            delivered++;
-            debug("delivered {} ({}) of bounty {} to {}", delivery.id(), delivery.reason(), delivery.bountyId(), player.getUUID());
+            handed++;
+            debug("player {} claimed delivery {} ({}) of bounty {}", player.getUUID(), delivery.id(), delivery.reason(), delivery.bountyId());
         }
-        return delivered;
+        return handed == 0 ? BountyResult.fail(BountyError.NOTHING_TO_CLAIM) : BountyResult.ok(handed);
+    }
+
+    private void notifyRewardsAvailable(UUID recipient) {
+        ServerPlayer player = server.getPlayerList().getPlayer(recipient);
+        if (player != null) {
+            int owed = deliveriesFor(recipient).size();
+            if (owed > 0) {
+                BountyNotifier.get().rewardsAvailable(player, owed);
+            }
+        }
     }
 
     /** Puts the stack in the inventory; whatever does not fit is dropped at the player's feet. Never voids items. */
@@ -365,17 +423,17 @@ public final class BountyManager {
         if (data.rememberPlayer(player.getUUID(), player.getGameProfile().getName())) {
             data.setDirty();
         }
-        deliverPending(player);
+        notifyRewardsAvailable(player.getUUID());
+        List<Bounty> onMe = activeOn(player.getUUID());
+        if (!onMe.isEmpty()) {
+            // Bounties may have been placed while they were away: they learn it on arrival.
+            BountyNotifier.get().bountiesOnLogin(player, onMe);
+        }
     }
 
     /** {@code PlayerLoggedOutEvent}. */
     public void onPlayerLogout(ServerPlayer player) {
         ledger.clear(player.getUUID());
-    }
-
-    /** {@code PlayerRespawnEvent}: deliveries are held while the recipient is dead. */
-    public void onPlayerRespawn(ServerPlayer player) {
-        deliverPending(player);
     }
 
     public void tick() {

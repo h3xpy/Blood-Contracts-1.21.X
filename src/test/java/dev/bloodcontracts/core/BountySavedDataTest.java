@@ -47,13 +47,13 @@ class BountySavedDataTest {
         assertEquals(active.sponsor(), loadedActive.sponsor());
         assertEquals(active.target(), loadedActive.target());
         assertEquals(active.createdAt(), loadedActive.createdAt());
-        assertTrue(ItemStack.matches(named, loadedActive.reward()), "reward item, count and components must match");
+        assertTrue(ItemStack.matches(named, loadedActive.rewards().get(0)), "reward item, count and components must match");
 
         assertEquals(1, loaded.history().size());
         Bounty loadedClosed = loaded.history().get(0);
         assertEquals(BountyState.CLAIMED, loadedClosed.state());
         assertEquals(HUNTER, loadedClosed.claimedBy());
-        assertEquals(5, loadedClosed.rewardCount());
+        assertEquals(5, loadedClosed.summary().get(0).count());
 
         assertEquals(1, loaded.deliveries().size());
         PendingDelivery loadedDelivery = loaded.deliveries().get(0);
@@ -71,7 +71,7 @@ class BountySavedDataTest {
         }
         List<Bounty> history = data.history();
         assertEquals(3, history.size());
-        assertEquals(List.of(3, 4, 5), history.stream().map(Bounty::rewardCount).toList());
+        assertEquals(List.of(3, 4, 5), history.stream().map(b -> b.summary().get(0).count()).toList());
     }
 
     @Test
@@ -83,7 +83,7 @@ class BountySavedDataTest {
         CompoundTag saved = data.save(new CompoundTag(), REGISTRIES);
         // Simulate a removed mod: rewrite the item ids to something that no longer exists.
         CompoundTag bountyTag = saved.getList("Active", Tag.TAG_COMPOUND).getCompound(0);
-        bountyTag.getCompound("Reward").putString("id", "removedmod:relic");
+        bountyTag.getList("Rewards", Tag.TAG_COMPOUND).getCompound(0).putString("id", "removedmod:relic");
         CompoundTag deliveryTag = saved.getList("Deliveries", Tag.TAG_COMPOUND).getCompound(0);
         deliveryTag.getCompound("Item").putString("id", "removedmod:relic");
 
@@ -99,6 +99,66 @@ class BountySavedDataTest {
         ListTag resavedDeliveries = resaved.getList("Deliveries", Tag.TAG_COMPOUND);
         assertEquals(bountyTag, resavedActive.getCompound(0));
         assertEquals(deliveryTag, resavedDeliveries.getCompound(0));
+    }
+
+    @Test
+    void severalRewardsSurviveRoundTrip() {
+        BountySavedData data = new BountySavedData();
+        Bounty b = Bounty.create(UUID.randomUUID(), SPONSOR, TARGET,
+                List.of(new ItemStack(Items.DIAMOND, 3), new ItemStack(Items.EMERALD, 7), new ItemStack(Items.TOTEM_OF_UNDYING)), 1L);
+        data.putActive(b);
+        Bounty loaded = roundTrip(data).active(b.id()).orElseThrow();
+        assertEquals(3, loaded.rewards().size());
+        for (int i = 0; i < 3; i++) {
+            assertTrue(ItemStack.matches(b.rewards().get(i), loaded.rewards().get(i)));
+        }
+    }
+
+    @Test
+    void oneUnknownStackQuarantinesTheWholeBounty() {
+        BountySavedData data = new BountySavedData();
+        Bounty b = Bounty.create(UUID.randomUUID(), SPONSOR, TARGET, List.of(new ItemStack(Items.DIAMOND), new ItemStack(Items.EMERALD)), 1L);
+        data.putActive(b);
+        CompoundTag saved = data.save(new CompoundTag(), REGISTRIES);
+        saved.getList("Active", Tag.TAG_COMPOUND).getCompound(0).getList("Rewards", Tag.TAG_COMPOUND).getCompound(1).putString("id", "gone:item");
+        BountySavedData loaded = BountySavedData.load(saved, REGISTRIES);
+        assertTrue(loaded.activeBounties().isEmpty(), "a partial bounty would lose an item");
+        assertEquals(1, loaded.unreadableEntries());
+    }
+
+    @Test
+    void legacySingleRewardFormatIsRead() {
+        // Format written by 0.1.0: one "Reward" stack, history described by RewardItem/RewardCount.
+        UUID id = UUID.randomUUID();
+        CompoundTag active = new CompoundTag();
+        active.putUUID("Id", id);
+        active.putUUID("Sponsor", SPONSOR);
+        active.putUUID("Target", TARGET);
+        active.put("Reward", new ItemStack(Items.DIAMOND, 4).save(REGISTRIES));
+        active.putLong("CreatedAt", 5L);
+        active.putString("State", "ACTIVE");
+        active.putLong("ClosedAt", 0L);
+        active.putString("RewardItem", "minecraft:diamond");
+        active.putInt("RewardCount", 4);
+        CompoundTag closed = active.copy();
+        closed.putUUID("Id", UUID.randomUUID());
+        closed.remove("Reward");
+        closed.putString("State", "CLAIMED");
+        closed.putUUID("ClaimedBy", HUNTER);
+        CompoundTag root = new CompoundTag();
+        ListTag a = new ListTag();
+        a.add(active);
+        ListTag h = new ListTag();
+        h.add(closed);
+        root.put("Active", a);
+        root.put("History", h);
+
+        BountySavedData loaded = BountySavedData.load(root, REGISTRIES);
+        Bounty b = loaded.active(id).orElseThrow();
+        assertEquals(1, b.rewards().size());
+        assertEquals(4, b.rewards().get(0).getCount());
+        assertEquals(1, loaded.history().size());
+        assertEquals(4, loaded.history().get(0).summary().get(0).count());
     }
 
     @Test

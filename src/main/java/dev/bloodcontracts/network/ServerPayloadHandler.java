@@ -7,13 +7,23 @@ import dev.bloodcontracts.core.BountyResult;
 import dev.bloodcontracts.menu.BountyCreateMenu;
 import dev.bloodcontracts.network.BCPayloads.BountyListPayload;
 import dev.bloodcontracts.network.BCPayloads.CancelBountyRequest;
+import dev.bloodcontracts.network.BCPayloads.ClaimRewardRequest;
 import dev.bloodcontracts.network.BCPayloads.CreateBountyRequest;
+import dev.bloodcontracts.network.BCPayloads.DeliveryView;
+import dev.bloodcontracts.network.BCPayloads.KnownPlayersPayload;
+import dev.bloodcontracts.network.BCPayloads.KnownPlayersPayload.KnownPlayer;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Server-side handling of client intentions. Everything is revalidated here (open menu, rights, bounty state) and
@@ -29,16 +39,15 @@ public final class ServerPayloadHandler {
         if (!(player.containerMenu instanceof BountyCreateMenu menu) || !menu.stillValid(player)) {
             return BountyResult.fail(BountyError.NO_MENU);
         }
-        BountyResult<Bounty> result = BountyManager.get(player.server)
-                .create(player, request.target(), menu.rewardContainer(), BountyCreateMenu.REWARD_SLOT);
+        BountyManager manager = BountyManager.get(player.server);
+        BountyResult<Bounty> result = manager.create(player, request.target(), menu.rewardContainer(), menu.activeRewardSlots());
         if (result.isOk()) {
-            // The slot is empty now; closing just tidies up.
+            // The slots are empty now; closing just tidies up.
             player.closeContainer();
             Bounty b = result.value();
-            sendList(player, true, Component.translatable("bloodcontracts.gui.created", b.reward().getHoverName(),
-                    BountyManager.get(player.server).nameOf(b.target())), false);
+            sendList(player, true, Component.translatable("bloodcontracts.gui.created", b.rewards().size(), manager.nameOf(b.target())), false);
         } else {
-            sendStatusInMenu(player, result.error());
+            player.displayClientMessage(result.error().message(), true);
         }
         return result;
     }
@@ -51,6 +60,14 @@ public final class ServerPayloadHandler {
         return result;
     }
 
+    public static BountyResult<Integer> handleClaim(ServerPlayer player, ClaimRewardRequest request) {
+        BountyResult<Integer> result = BountyManager.get(player.server).claimRewards(player, request.deliveryId());
+        sendList(player, false, result.isOk()
+                ? Component.translatable("bloodcontracts.gui.claimed", result.value())
+                : result.error().message(), !result.isOk());
+        return result;
+    }
+
     public static void handleListRequest(ServerPlayer player) {
         sendList(player, false, null, false);
     }
@@ -58,29 +75,51 @@ public final class ServerPayloadHandler {
     public static void handleOpenCreate(ServerPlayer player) {
         if (player.isAlive()) {
             player.openMenu(BountyCreateMenu.provider());
+            send(player, knownPlayers(player));
         }
     }
 
-    public static BountyListPayload buildList(ServerPlayer player, boolean openScreen, Component status, boolean isError) {
+    /** Every player the server knows except the viewer, online first. Offline players are valid targets. */
+    public static KnownPlayersPayload knownPlayers(ServerPlayer viewer) {
+        BountyManager manager = BountyManager.get(viewer.server);
+        List<KnownPlayer> players = new ArrayList<>();
+        for (Map.Entry<UUID, String> e : manager.data().knownPlayers().entrySet()) {
+            if (!e.getKey().equals(viewer.getUUID())) {
+                players.add(new KnownPlayer(e.getKey(), e.getValue(), viewer.server.getPlayerList().getPlayer(e.getKey()) != null));
+            }
+        }
+        players.sort(Comparator.comparing(KnownPlayer::online).reversed()
+                .thenComparing(KnownPlayer::name, String.CASE_INSENSITIVE_ORDER));
+        return new KnownPlayersPayload(players);
+    }
+
+    public static BountyListPayload buildList(ServerPlayer player, boolean openScreen, @Nullable Component status, boolean isError) {
         BountyManager manager = BountyManager.get(player.server);
         boolean op = player.hasPermissions(Commands.LEVEL_GAMEMASTERS);
         List<BountyView> active = manager.activeBounties().stream()
                 .map(b -> BountyView.of(b, manager, player.getUUID(), op)).toList();
         List<BountyView> history = manager.history().stream().limit(HISTORY_SENT)
                 .map(b -> BountyView.of(b, manager, player.getUUID(), op)).toList();
-        return new BountyListPayload(active, history, openScreen, Optional.ofNullable(status), isError);
+        List<DeliveryView> claimable = manager.deliveriesFor(player.getUUID()).stream()
+                .map(d -> new DeliveryView(d.id(), d.stack().copy(), d.reason(),
+                        manager.findAny(d.bountyId()).map(b -> manager.nameOf(b.target())).orElse("?")))
+                .toList();
+        return new BountyListPayload(active, history, claimable, openScreen, Optional.ofNullable(status), isError);
     }
 
-    public static void sendList(ServerPlayer player, boolean openScreen, Component status, boolean isError) {
-        if (player.connection.hasChannel(BountyListPayload.TYPE)) {
-            PacketDistributor.sendToPlayer(player, buildList(player, openScreen, status, isError));
-        } else if (status != null) {
+    public static void sendList(ServerPlayer player, boolean openScreen, @Nullable Component status, boolean isError) {
+        if (!send(player, buildList(player, openScreen, status, isError)) && status != null) {
             // Client without the mod's screens: fall back to a chat message.
             player.sendSystemMessage(status);
         }
     }
 
-    private static void sendStatusInMenu(ServerPlayer player, BountyError error) {
-        player.displayClientMessage(error.message(), true);
+    /** Sends a payload if the client understands it. */
+    static boolean send(ServerPlayer player, CustomPacketPayload payload) {
+        if (player.connection.hasChannel(payload.type())) {
+            PacketDistributor.sendToPlayer(player, payload);
+            return true;
+        }
+        return false;
     }
 }

@@ -75,6 +75,7 @@ public class RobustnessTests {
         helper.assertTrue(manager.findAny(a.id()).orElseThrow().state() == BountyState.CLAIMED, "A not claimed");
         helper.assertTrue(manager.findAny(bb.id()).orElseThrow().state() == BountyState.CLAIMED, "B not claimed");
         helper.assertTrue(manager.findActive(own.id()).isPresent(), "hunter's own bounty must stay active");
+        TestSupport.claimAll(helper, manager, hunter);
         helper.assertTrue(countInInventory(hunter, mA) == 1 && countInInventory(hunter, mB) == 2, "hunter not paid both rewards");
         helper.assertTrue(countInInventory(hunter, mH) == 0, "hunter must not recover their own reward");
         assertConserved(helper, manager, mA, 1);
@@ -97,6 +98,7 @@ public class RobustnessTests {
         hit(target, source, 1000f);
         NeoForge.EVENT_BUS.post(new LivingDeathEvent(target, source));
         NeoForge.EVENT_BUS.post(new LivingDeathEvent(target, source));
+        TestSupport.claimAll(helper, manager, hunter);
 
         helper.assertTrue(countInInventory(hunter, marker) == 3, "hunter should be paid exactly once");
         helper.assertTrue(manager.history().size() == 1, "history should hold one claim");
@@ -126,11 +128,15 @@ public class RobustnessTests {
 
         helper.runAfterDelay(5, () -> {
             ServerPlayer back = TestPlayers.login(helper, hunterProfile, new Vec3(3.5, 1, 1.5));
-            helper.assertTrue(countInInventory(back, marker) == 3, "not delivered on reconnect");
+            helper.assertTrue(TestSupport.countOwed(manager, back, marker) == 3, "reward lost across the reconnection");
+            helper.assertTrue(countInInventory(back, marker) == 0, "reward pushed into the inventory without a claim");
+            TestSupport.claimAll(helper, manager, back);
+            helper.assertTrue(countInInventory(back, marker) == 3, "not handed over on claim");
             helper.assertTrue(manager.deliveriesFor(hunterProfile.getId()).isEmpty(), "delivery not deleted");
-            // A second login event must not deliver again.
+            // Claiming again, or another login, must not hand anything over twice.
             manager.onPlayerLogin(back);
-            manager.deliverPending(back);
+            var again = manager.claimRewards(back, java.util.Optional.empty());
+            helper.assertTrue(!again.isOk() && again.error() == dev.bloodcontracts.core.BountyError.NOTHING_TO_CLAIM, "second claim should be refused");
             helper.assertTrue(countInInventory(back, marker) == 3, "delivered twice");
             assertConserved(helper, manager, marker, 3);
             helper.succeed();
@@ -168,6 +174,7 @@ public class RobustnessTests {
         }
 
         hit(target, target.damageSources().playerAttack(hunter), 1000f);
+        TestSupport.claimAll(helper, manager, hunter);
 
         helper.assertTrue(countInInventory(hunter, marker) == 0, "item fit in a full inventory?");
         helper.assertTrue(manager.data().deliveries().isEmpty(), "delivery not completed");
@@ -195,6 +202,7 @@ public class RobustnessTests {
         hunter.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
 
         manager.claimAll(target.getUUID(), hunter.getUUID());
+        TestSupport.claimAll(helper, manager, hunter);
 
         assertConserved(helper, manager, marker, 3);
         helper.succeed();
@@ -253,7 +261,7 @@ public class RobustnessTests {
         BountySavedData reloaded = BountySavedData.load(manager.data().save(new CompoundTag(), registries), registries);
 
         Bounty r = reloaded.active(b.id()).orElseThrow();
-        helper.assertTrue(ItemStack.matches(expected, r.reward()), "enchanted reward changed across reload");
+        helper.assertTrue(ItemStack.matches(expected, r.rewards().get(0)), "enchanted reward changed across reload");
         helper.assertTrue(r.sponsor().equals(b.sponsor()) && r.target().equals(b.target()) && r.createdAt() == b.createdAt(), "fields changed");
         helper.succeed();
     }
@@ -268,7 +276,7 @@ public class RobustnessTests {
         var registries = helper.getLevel().registryAccess();
         CompoundTag saved = manager.data().save(new CompoundTag(), registries);
         CompoundTag entry = saved.getList("Active", Tag.TAG_COMPOUND).getCompound(0);
-        entry.getCompound("Reward").putString("id", "removedmod:cursed_relic");
+        entry.getList("Rewards", Tag.TAG_COMPOUND).getCompound(0).putString("id", "removedmod:cursed_relic");
 
         BountySavedData reloaded = BountySavedData.load(saved, registries);
 
@@ -296,6 +304,7 @@ public class RobustnessTests {
         hunter.hasChangedDimension();
         hit(target, target.damageSources().playerAttack(hunter), 1000f);
         helper.assertTrue(manager.findAny(b.id()).orElseThrow().state() == BountyState.CLAIMED, "not claimed in the nether");
+        TestSupport.claimAll(helper, manager, hunter);
         helper.assertTrue(countInInventory(hunter, marker) == 3, "hunter not paid in the nether");
         helper.succeed();
     }

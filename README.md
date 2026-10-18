@@ -4,13 +4,20 @@ Mod NeoForge 1.21.1 : des primes sur les joueurs, financées exclusivement par l
 objet de son inventaire ; celui qui tue la cible le reçoit. Le serveur ne crée jamais d'objet.
 
 ## Jouer
-- `/bounty place <joueur>` : met une prime avec l'objet tenu en main principale.
-- `/bounty list`, `/bounty info <id>`, `/bounty cancel <id>`, `/bounty history`, `/bounty gui`.
-- Opérateurs : `/bounty admin list`, `/bounty admin cancel <id>`.
-- Touche `B` : tableau des primes (création, annulation, historique).
+- Touche `B` : tableau des primes, avec trois onglets (« Ouverts », « À réclamer », « Historique »).
+  - **Nouvelle prime** : le joueur choisit la cible parmi tous les joueurs déjà venus sur le serveur, **même hors ligne**
+    (recherche par nom), puis dépose la récompense et signe le contrat. Par défaut il n'y a qu'un emplacement ;
+    le bouton « + objets » en ouvre 9 pour offrir plusieurs objets différents.
+  - **À réclamer** : les gains et les remboursements ne tombent jamais tout seuls dans l'inventaire. Ils attendent ici
+    (une notification l'annonce) et se récupèrent avec « Réclamer » ou « Tout réclamer ».
+- Une cible en ligne reçoit une **alerte plein écran** : vignette rouge pulsante, titre qui tremble, malédiction puis
+  battements de cœur. Une cible hors ligne la reçoit à sa connexion.
+- Commandes : `/bounty place <joueur>` (objet en main, cible en ligne ou non), `/bounty list`, `/bounty info <id>`,
+  `/bounty cancel <id>`, `/bounty claim`, `/bounty history`, `/bounty gui`. Opérateurs : `/bounty admin list`, `/bounty admin cancel <id>`.
 
 Configuration serveur : `config/bloodcontracts-server.toml` dans le monde (fenêtre d'attribution, verrou d'annulation,
-limite par commanditaire, blacklist, familiers, visibilité du commanditaire, taille de l'historique).
+limite par commanditaire, blacklist, familiers, visibilité du commanditaire, nom du commanditaire dans l'alerte
+`alertRevealsSponsor`, taille de l'historique).
 Les dégâts « environnementaux » (vide, chute, lave…) qui peuvent être attribués au dernier attaquant sont définis par le tag
 de types de dégâts `bloodcontracts:environmental`, extensible par datapack.
 
@@ -21,8 +28,10 @@ Create et Create Big Cannons sont optionnels. Avec CBC, un tir est attribué au 
 ```bash
 ./gradlew test                      # JUnit (logique pure)
 ./gradlew runGameTestServer         # GameTests sans Create ni CBC
-./gradlew runGameTestServerCompat   # GameTests avec Create, CBC et RPL
+./gradlew runGameTestServerCompat   # GameTests avec Create, CBC, RPL et CBC Enchanced Shells
 ```
+Les clients et le serveur de développement (`runClient`, `runClient2`, `runClient3`, `runServer`) chargent Create 6.0.10,
+CBC 5.11.7, RPL 2.1.2 et CBC Enchanced Shells (« More Shells ») 1.4.0, pour tester les primes avec leurs objets.
 ### Trois clients en LAN (commanditaire, chasseur, cible)
 Trois configurations de lancement existent : `client` (`Joueur1`, dossier `run/`), `client2` (`Joueur2`, `run/client2`)
 et `client3` (`Joueur3`, `run/client3`). Les noms différents donnent des UUID différents ; sinon les clients suivants seraient refusés.

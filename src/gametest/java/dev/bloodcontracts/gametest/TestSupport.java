@@ -97,7 +97,9 @@ public final class TestSupport {
             }
         }
         for (Bounty b : manager.activeBounties()) {
-            total += countIf(b.reward(), marker);
+            for (ItemStack r : b.rewards()) {
+                total += countIf(r, marker);
+            }
         }
         for (PendingDelivery d : manager.data().deliveries()) {
             total += countIf(d.stack(), marker);
@@ -122,6 +124,17 @@ public final class TestSupport {
     public static boolean hit(LivingEntity victim, DamageSource source, float amount) {
         victim.invulnerableTime = 0;
         return victim.hurt(source, amount);
+    }
+
+    /** Marked items waiting for {@code player} in the board's "to claim" tab. */
+    public static int countOwed(BountyManager manager, ServerPlayer player, UUID marker) {
+        return manager.deliveriesFor(player.getUUID()).stream().mapToInt(d -> countIf(d.stack(), marker)).sum();
+    }
+
+    /** Claims everything owed to {@code player}, as the "Claim all" button does. */
+    public static void claimAll(GameTestHelper helper, BountyManager manager, ServerPlayer player) {
+        var result = manager.claimRewards(player, java.util.Optional.empty());
+        helper.assertTrue(result.isOk(), "claim failed: " + result.error());
     }
 
     public static int countInInventory(ServerPlayer player, UUID marker) {

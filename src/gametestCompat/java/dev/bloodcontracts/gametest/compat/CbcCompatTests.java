@@ -58,6 +58,13 @@ import rbasamoyai.createbigcannons.munitions.big_cannon.BigCannonMunitionBlock;
 @PrefixGameTestTemplate(false)
 public class CbcCompatTests {
     private static final String T = BloodContractsGameTests.TEMPLATE;
+    /**
+     * 20 blocks long firing range with an obsidian backstop: shells must never leave their own test area, because
+     * Ritchie's Projectile Library force-loads the chunks a shell crosses and later releases that force-load, which would
+     * also release the one the GameTest framework puts on a neighbouring test area (that test would then wait forever).
+     */
+    private static final String RANGE = "cannon_range";
+    private static final int BACKSTOP_X = 15;
     private static final BlockPos MOUNT = new BlockPos(1, 0, 1);
     private static final BlockPos FIRE_SIDE = MOUNT.east();
     private static final BlockPos ASSEMBLY_SIDE = MOUNT.west();
@@ -93,6 +100,14 @@ public class CbcCompatTests {
         // CBC's random misfires are its own business, not ours: keep the cannon deterministic.
         CBCConfigs.server().failure.disableAllFailure.set(true);
 
+        // Backstop: three layers of obsidian across the whole line of fire.
+        for (int bx = BACKSTOP_X; bx < BACKSTOP_X + 3; bx++) {
+            for (int by = 0; by < 8; by++) {
+                for (int bz = 0; bz < 8; bz++) {
+                    helper.setBlock(new BlockPos(bx, by, bz), Blocks.OBSIDIAN);
+                }
+            }
+        }
         helper.setBlock(MOUNT, CBCBlocks.CANNON_MOUNT.getDefaultState().setValue(CannonMountBlock.HORIZONTAL_FACING, Direction.EAST));
         // Assemble through the assembly side, as a redstone signal would.
         helper.setBlock(ASSEMBLY_SIDE, Blocks.REDSTONE_BLOCK);
@@ -148,9 +163,11 @@ public class CbcCompatTests {
         if (c != null) {
             c.discard();
         }
+        helper.getLevel().getEntitiesOfClass(rbasamoyai.createbigcannons.munitions.AbstractCannonProjectile.class,
+                helper.getBounds().inflate(32)).forEach(net.minecraft.world.entity.Entity::discard);
     }
 
-    @GameTest(template = T, batch = "cbc_operator", timeoutTicks = 100)
+    @GameTest(template = RANGE, batch = "cbc_operator", timeoutTicks = 100)
     public static void shotAfterRecentInteractionCreditsOperator(GameTestHelper helper) {
         Range r = setUp(helper, CBCBlocks.SOLID_SHOT.getDefaultState(), false);
         pullFireLever(helper, r.operator());
@@ -159,13 +176,13 @@ public class CbcCompatTests {
             Bounty b = r.manager().findAny(r.bounty().id()).orElseThrow();
             helper.assertTrue(b.state() == BountyState.CLAIMED, "not claimed: " + b.state());
             helper.assertTrue(r.operator().getUUID().equals(b.claimedBy()), "credited to " + b.claimedBy() + " instead of the operator");
-            helper.assertTrue(countInInventory(r.operator(), r.marker()) == 3, "operator not paid");
+            helper.assertTrue(TestSupport.countOwed(r.manager(), r.operator(), r.marker()) == 3, "operator not paid");
             assertConserved(helper, r.manager(), r.marker(), 3);
             cleanUp(helper);
         });
     }
 
-    @GameTest(template = T, batch = "cbc_redstone", timeoutTicks = 100)
+    @GameTest(template = RANGE, batch = "cbc_redstone", timeoutTicks = 100)
     public static void redstoneShotWithoutInteractionCreditsNobody(GameTestHelper helper) {
         Range r = setUp(helper, CBCBlocks.SOLID_SHOT.getDefaultState(), false);
         // Fired by plain redstone: nobody touched the cannon.
@@ -179,7 +196,7 @@ public class CbcCompatTests {
         });
     }
 
-    @GameTest(template = T, batch = "cbc_stale", timeoutTicks = 120)
+    @GameTest(template = RANGE, batch = "cbc_stale", timeoutTicks = 120)
     public static void staleInteractionCreditsNobody(GameTestHelper helper) {
         Range r = setUp(helper, CBCBlocks.SOLID_SHOT.getDefaultState(), false);
         BCConfig.CANNON_OPERATOR_WINDOW_TICKS.set(10);
@@ -195,7 +212,7 @@ public class CbcCompatTests {
         }));
     }
 
-    @GameTest(template = T, batch = "cbc_explosion", timeoutTicks = 100)
+    @GameTest(template = RANGE, batch = "cbc_explosion", timeoutTicks = 100)
     public static void shellExplosionCreditsOperator(GameTestHelper helper) {
         // The target stands off the line of fire; a wall stops the shell, only the blast can reach the target.
         Range r = setUp(helper, CBCBlocks.HE_SHELL.getDefaultState(), true, new Vec3(8.5, MOUNT.getY() + 2, 3.5));
@@ -216,7 +233,7 @@ public class CbcCompatTests {
         });
     }
 
-    @GameTest(template = T, batch = "cbc_seated")
+    @GameTest(template = RANGE, batch = "cbc_seated")
     public static void playerOnCarriageIsOperator(GameTestHelper helper) {
         // A mounted big cannon has no seat (Create refuses passengers without one): seated operators ride a cannon
         // carriage. Closest level: a real carriage carrying the real cannon and the player, operator lookup called
@@ -252,7 +269,7 @@ public class CbcCompatTests {
         return net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(key).defaultBlockState();
     }
 
-    @GameTest(template = T, batch = "cbces_he_mk", timeoutTicks = 100)
+    @GameTest(template = RANGE, batch = "cbces_he_mk", timeoutTicks = 100)
     public static void moreShellsHeShellCreditsOperator(GameTestHelper helper) {
         // Addon shell (its own entity namespace, extends CBC's HE shell) fired from a real cannon, blast behind a wall.
         Range r = setUp(helper, moreShellsBlock(helper, "he_shell_mk1"), true, new Vec3(8.5, MOUNT.getY() + 2, 3.5));

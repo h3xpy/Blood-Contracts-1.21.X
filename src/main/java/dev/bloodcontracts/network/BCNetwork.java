@@ -19,6 +19,8 @@ public final class BCNetwork {
                 (payload, ctx) -> onServer(ctx, player -> ServerPayloadHandler.handleCreate(player, payload)));
         registrar.playToServer(CancelBountyRequest.TYPE, CancelBountyRequest.STREAM_CODEC,
                 (payload, ctx) -> onServer(ctx, player -> ServerPayloadHandler.handleCancel(player, payload)));
+        registrar.playToServer(BCPayloads.ClaimRewardRequest.TYPE, BCPayloads.ClaimRewardRequest.STREAM_CODEC,
+                (payload, ctx) -> onServer(ctx, player -> ServerPayloadHandler.handleClaim(player, payload)));
         registrar.playToServer(RequestBountyList.TYPE, RequestBountyList.STREAM_CODEC,
                 (payload, ctx) -> onServer(ctx, ServerPayloadHandler::handleListRequest));
         registrar.playToServer(OpenCreateMenuRequest.TYPE, OpenCreateMenuRequest.STREAM_CODEC,
@@ -26,6 +28,12 @@ public final class BCNetwork {
         // The lambda body only runs on the client, so the client class is never loaded on a dedicated server.
         registrar.playToClient(BountyListPayload.TYPE, BountyListPayload.STREAM_CODEC,
                 (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleList(payload)));
+        registrar.playToClient(BCPayloads.KnownPlayersPayload.TYPE, BCPayloads.KnownPlayersPayload.STREAM_CODEC,
+                (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleKnownPlayers(payload)));
+        registrar.playToClient(BCPayloads.BountyAlertPayload.TYPE, BCPayloads.BountyAlertPayload.STREAM_CODEC,
+                (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleAlert(payload)));
+        registrar.playToClient(BCPayloads.RewardsAvailablePayload.TYPE, BCPayloads.RewardsAvailablePayload.STREAM_CODEC,
+                (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleRewardsAvailable(payload)));
     }
 
     /** Runs the handler on the server thread, for a server player only. */

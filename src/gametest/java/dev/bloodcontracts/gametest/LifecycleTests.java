@@ -49,8 +49,8 @@ public class LifecycleTests {
         helper.assertTrue(result.isOk(), "creation failed: " + result.error());
         helper.assertTrue(sponsor.getInventory().getItem(0).isEmpty(), "source slot not emptied");
         Bounty b = result.value();
-        helper.assertTrue(ItemStack.matches(expected, b.reward()), "escrowed stack differs (item, components or count)");
-        helper.assertTrue(b.reward() != reward, "escrow shares a reference with the inventory stack");
+        helper.assertTrue(ItemStack.matches(expected, b.rewards().get(0)), "escrowed stack differs (item, components or count)");
+        helper.assertTrue(b.rewards().get(0) != reward, "escrow shares a reference with the inventory stack");
         helper.assertTrue(b.state() == BountyState.ACTIVE, "not active");
         helper.assertTrue(manager.findActive(b.id()).isPresent(), "not in saved data");
         assertConserved(helper, manager, marker, before);
@@ -59,7 +59,7 @@ public class LifecycleTests {
         UUID marker2 = UUID.randomUUID();
         hold(sponsor, marked(Items.EMERALD, 64, marker2));
         Bounty b2 = placeFromHand(manager, sponsor, target).value();
-        helper.assertTrue(b2 != null && b2.reward().getCount() == 64, "count not preserved");
+        helper.assertTrue(b2 != null && b2.rewards().get(0).getCount() == 64, "count not preserved");
         assertConserved(helper, manager, marker2, 64);
         helper.succeed();
     }
@@ -132,8 +132,13 @@ public class LifecycleTests {
         Bounty closed = manager.findAny(b.id()).orElseThrow();
         helper.assertTrue(closed.state() == BountyState.CANCELLED, "not cancelled");
         helper.assertTrue(manager.history().stream().anyMatch(h -> h.id().equals(b.id())), "not in history");
-        helper.assertTrue(closed.reward().isEmpty(), "history keeps an item");
-        helper.assertTrue(manager.data().deliveries().isEmpty(), "refund not delivered to an online sponsor");
+        helper.assertTrue(closed.rewards().isEmpty(), "history keeps an item");
+        // The refund waits in the board ("to claim"), it does not land in the inventory by itself.
+        helper.assertTrue(TestSupport.countOwed(manager, sponsor, marker) == 5, "refund not waiting to be claimed");
+        helper.assertTrue(TestSupport.countInInventory(sponsor, marker) == 0, "refund was pushed into the inventory");
+        assertConserved(helper, manager, marker, 5);
+        TestSupport.claimAll(helper, manager, sponsor);
+        helper.assertTrue(manager.data().deliveries().isEmpty(), "claimed delivery not deleted");
         helper.assertTrue(ItemStack.matches(expected, sponsor.getInventory().getItem(0)), "sponsor did not get the exact stack back");
         assertConserved(helper, manager, marker, 5);
         helper.succeed();
@@ -154,6 +159,7 @@ public class LifecycleTests {
         expectRefused(helper, manager.cancel(sponsor.getUUID(), UUID.randomUUID(), false), BountyError.NOT_FOUND);
 
         assertConserved(helper, manager, marker, 3);
+        TestSupport.claimAll(helper, manager, sponsor);
         helper.assertTrue(TestSupport.countInInventory(sponsor, marker) == 3, "sponsor should hold exactly 3");
         helper.succeed();
     }
@@ -173,7 +179,8 @@ public class LifecycleTests {
         helper.assertTrue(manager.findActive(b.id()).isPresent(), "refused cancel changed state");
 
         helper.assertTrue(manager.cancel(stranger.getUUID(), b.id(), true).isOk(), "operator cancel failed");
-        helper.assertTrue(TestSupport.countInInventory(sponsor, marker) == 2, "refund must go to the sponsor, not the operator");
+        helper.assertTrue(TestSupport.countOwed(manager, sponsor, marker) == 2, "refund must go to the sponsor, not the operator");
+        helper.assertTrue(manager.deliveriesFor(stranger.getUUID()).isEmpty(), "operator must not be owed anything");
         assertConserved(helper, manager, marker, 2);
         helper.succeed();
     }
@@ -202,7 +209,7 @@ public class LifecycleTests {
         helper.runAfterDelay(25, () -> {
             helper.assertTrue(manager.cancel(sponsor.getUUID(), b.id(), false).isOk(), "cancel still locked after the delay");
             assertConserved(helper, manager, marker, 1);
-            helper.assertTrue(TestSupport.countInInventory(sponsor, marker) == 1, "refund missing");
+            helper.assertTrue(TestSupport.countOwed(manager, sponsor, marker) == 1, "refund missing");
             helper.succeed();
         });
     }
@@ -224,7 +231,9 @@ public class LifecycleTests {
         assertConserved(helper, manager, marker, 4);
 
         ServerPlayer back = TestPlayers.login(helper, profile, new net.minecraft.world.phys.Vec3(1.5, 1, 1.5));
-        helper.assertTrue(TestSupport.countInInventory(back, marker) == 4, "refund not delivered on login");
+        helper.assertTrue(TestSupport.countOwed(manager, back, marker) == 4, "refund lost across the reconnection");
+        TestSupport.claimAll(helper, manager, back);
+        helper.assertTrue(TestSupport.countInInventory(back, marker) == 4, "refund not handed over on claim");
         helper.assertTrue(manager.deliveriesFor(profile.getId()).isEmpty(), "delivery not deleted");
         assertConserved(helper, manager, marker, 4);
         helper.succeed();
