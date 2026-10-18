@@ -110,6 +110,14 @@ neoForge {
             programArguments.addAll '--username', 'Joueur2'
         }
 
+        // Third client: sponsor, hunter and target each get their own player.
+        client3 {
+            client()
+            loadedMods = [mods."${mod_id}"]
+            gameDirectory = project.file('run/client3')
+            programArguments.addAll '--username', 'Joueur3'
+        }
+
         server {
             server()
             programArgument '--nogui'
