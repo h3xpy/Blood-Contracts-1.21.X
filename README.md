@@ -1,25 +1,26 @@
+# Blood Contracts
 
-Installation information
-=======
+Mod NeoForge 1.21.1 : des primes sur les joueurs, financées exclusivement par les joueurs. Le commanditaire engage un
+objet de son inventaire ; celui qui tue la cible le reçoit. Le serveur ne crée jamais d'objet.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+## Jouer
+- `/bounty place <joueur>` : met une prime avec l'objet tenu en main principale.
+- `/bounty list`, `/bounty info <id>`, `/bounty cancel <id>`, `/bounty history`, `/bounty gui`.
+- Opérateurs : `/bounty admin list`, `/bounty admin cancel <id>`.
+- Touche `B` : tableau des primes (création, annulation, historique).
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+Configuration serveur : `config/bloodcontracts-server.toml` dans le monde (fenêtre d'attribution, verrou d'annulation,
+limite par commanditaire, blacklist, familiers, visibilité du commanditaire, taille de l'historique).
+Les dégâts « environnementaux » (vide, chute, lave…) qui peuvent être attribués au dernier attaquant sont définis par le tag
+de types de dégâts `bloodcontracts:environmental`, extensible par datapack.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+Create et Create Big Cannons sont optionnels. Avec CBC, un tir est attribué au joueur qui a opéré le canon juste avant
+(voir [docs/cbc-attribution.md](docs/cbc-attribution.md)).
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
-
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+## Développer
+```bash
+./gradlew test                      # JUnit (logique pure)
+./gradlew runGameTestServer         # GameTests sans Create ni CBC
+./gradlew runGameTestServerCompat   # GameTests avec Create, CBC et RPL
+```
+État de la matrice de tests : [docs/TEST_STATUS.md](docs/TEST_STATUS.md). Spécification : [CLAUDE.md](CLAUDE.md).

@@ -195,6 +195,18 @@ public class AttributionTests {
         helper.succeed();
     }
 
+    @GameTest(template = T, batch = "fake_player")
+    public static void machineFakePlayerCreditsNobody(GameTestHelper helper) {
+        Scene s = scene(helper);
+        // Create's deployer attacks through a FakePlayer (possibly carrying its owner's UUID): never credited.
+        var machine = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(s.hunter().getUUID(), "[Deployer]"));
+        hit(s.target(), s.sources().playerAttack(machine), 1000f);
+        helper.assertTrue(s.target().isDeadOrDying(), "fake player did not kill");
+        s.assertStillActive(helper);
+        helper.succeed();
+    }
+
     @GameTest(template = T, batch = "pet_credit")
     public static void tamedWolfCreditsOwner(GameTestHelper helper) {
         Scene s = scene(helper);

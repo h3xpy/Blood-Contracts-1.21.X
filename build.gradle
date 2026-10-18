@@ -27,7 +27,15 @@ sourceSets.main.resources {
 }
 
 repositories {
-    // Add here additional repositories if required by some of the dependencies below.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter { includeGroup 'maven.modrinth' }
+    }
 }
 
 base {
@@ -39,6 +47,13 @@ sourceSets {
     gametest {
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
+    }
+    // Compat GameTests: same as above plus Create, Create Big Cannons and Ritchie's Projectile Library at runtime.
+    gametestCompat {
+        compileClasspath += sourceSets.main.output
+        compileClasspath += sourceSets.gametest.output
+        runtimeClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.gametest.output
     }
 }
 
@@ -66,6 +81,9 @@ neoForge {
         bloodcontracts_gametest {
             sourceSet(sourceSets.gametest)
         }
+        bloodcontracts_gametest_compat {
+            sourceSet(sourceSets.gametestCompat)
+        }
     }
 
     runs {
@@ -90,6 +108,15 @@ neoForge {
             gameDirectory = project.file('run/gametest')
         }
 
+        // Same GameTests plus the compat ones, with Create, CBC and RPL loaded.
+        gameTestServerCompat {
+            type = "gameTestServer"
+            sourceSet = sourceSets.gametestCompat
+            loadedMods = [mods."${mod_id}", mods.bloodcontracts_gametest, mods.bloodcontracts_gametest_compat]
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            gameDirectory = project.file('run/gametest-compat')
+        }
+
         data {
             data()
             loadedMods = [mods."${mod_id}"]
@@ -105,6 +132,7 @@ neoForge {
     unitTest {
         enable()
         testedMod = mods."${mod_id}"
+        loadedMods = [mods."${mod_id}"]
     }
 }
 
@@ -114,13 +142,35 @@ neoForge {
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    createJar
+}
+
+def extractCreateNested = tasks.register('extractCreateNested', Copy) {
+    from({ zipTree(configurations.createJar.singleFile) }) {
+        include 'META-INF/jarjar/*.jar'
+        eachFile { path = name }
+    }
+    includeEmptyDirs = false
+    into layout.buildDirectory.dir('createNested')
 }
 
 neoForge.addModdingDependenciesTo(sourceSets.gametest)
+neoForge.addModdingDependenciesTo(sourceSets.gametestCompat)
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Optional compat: compile against Create / CBC / RPL, never required at runtime.
+    compileOnly "maven.modrinth:create:${create_version}"
+    compileOnly "maven.modrinth:create-big-cannons:${cbc_version}"
+    compileOnly "maven.modrinth:rpl:${rpl_version}"
+    gametestCompatImplementation "maven.modrinth:create:${create_version}"
+    gametestCompatImplementation "maven.modrinth:create-big-cannons:${cbc_version}"
+    gametestCompatImplementation "maven.modrinth:rpl:${rpl_version}"
+    createJar("maven.modrinth:create:${create_version}") { transitive = false }
+    // Registrate, Flywheel and Ponder are nested inside the Create jar; the compat GameTests need them to compile.
+    gametestCompatCompileOnly fileTree(layout.buildDirectory.dir('createNested')) { include '*.jar' builtBy extractCreateNested }
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"

@@ -15,6 +15,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.fml.util.ObfuscationReflectionHelper;
+import net.neoforged.neoforge.network.registration.NetworkRegistry;
 
 /**
  * Simulated players: real {@link ServerPlayer}s on an embedded connection, joined through the player list (so
@@ -51,6 +52,8 @@ public final class TestPlayers {
         ServerPlayer player = new ServerPlayer(server, helper.getLevel(), profile, cookie.clientInformation());
         Connection connection = new Connection(PacketFlow.SERVERBOUND);
         new EmbeddedChannel(connection);
+        // Act as a fully compatible NeoForge client, so every mod's payloads (ours, CBC's...) can be sent.
+        NetworkRegistry.configureMockConnection(connection);
         server.getPlayerList().placeNewPlayer(connection, player, cookie);
         player.setGameMode(GameType.SURVIVAL);
         ObfuscationReflectionHelper.setPrivateValue(ServerPlayer.class, player, 0, "spawnInvulnerableTime");

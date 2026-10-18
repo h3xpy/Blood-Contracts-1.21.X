@@ -8,6 +8,7 @@ import dev.bloodcontracts.menu.BCMenus;
 import dev.bloodcontracts.network.BCNetwork;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
@@ -24,5 +25,9 @@ public class BloodContracts {
         BCMenus.register(modBus);
         modBus.addListener(BCNetwork::register);
         BountyEvents.register(NeoForge.EVENT_BUS);
+        // Optional compat: the compat classes are only touched when their mod is present.
+        if (ModList.get().isLoaded(dev.bloodcontracts.compat.cbc.CbcCompat.CBC)) {
+            dev.bloodcontracts.compat.cbc.CbcCompat.init(NeoForge.EVENT_BUS);
+        }
     }
 }

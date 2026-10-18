@@ -1,0 +1,16 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="bloodcontracts_gametest_compat"
+version="0.0.0"
+displayName="Blood Contracts Compat GameTests"
+description='''Create Big Cannons compat GameTests for Blood Contracts. Development only, never shipped.'''
+
+[[dependencies.bloodcontracts_gametest_compat]]
+modId="createbigcannons"
+type="required"
+versionRange="[0,)"
+ordering="AFTER"
+side="BOTH"

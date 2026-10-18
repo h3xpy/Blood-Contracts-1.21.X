@@ -14,10 +14,13 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.common.util.FakePlayer;
 
 /**
  * Resolves a {@link DamageSource} to the player responsible for it.
  * <ol>
+ *   <li>{@code source.getEntity()} is a {@link FakePlayer} (Create deployer, other machines): nobody. A machine's
+ *       owner is never assumed responsible for its victims.</li>
  *   <li>{@code source.getEntity()} is a player: that player (covers arrows, TNT lit by a player, thrown potions...).
  *       {@code getDirectEntity()} is never used as the responsible: it is the arrow or the TNT.</li>
  *   <li>{@code source.getEntity()} is an {@link OwnableEntity} owned by a player: the owner, if {@code creditTamedPets}.</li>
@@ -50,6 +53,9 @@ public final class ResponsibleResolver {
 
     public static Optional<UUID> resolve(DamageSource source, boolean creditTamedPets) {
         Entity causing = source.getEntity();
+        if (causing instanceof FakePlayer) {
+            return Optional.empty();
+        }
         if (causing instanceof Player player) {
             return Optional.of(player.getUUID());
         }
