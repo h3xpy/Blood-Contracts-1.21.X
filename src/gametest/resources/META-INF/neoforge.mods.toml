@@ -1,0 +1,16 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="bloodcontracts_gametest"
+version="0.0.0"
+displayName="Blood Contracts GameTests"
+description='''GameTests for Blood Contracts. Development only, never shipped.'''
+
+[[dependencies.bloodcontracts_gametest]]
+modId="bloodcontracts"
+type="required"
+versionRange="[0,)"
+ordering="AFTER"
+side="BOTH"
