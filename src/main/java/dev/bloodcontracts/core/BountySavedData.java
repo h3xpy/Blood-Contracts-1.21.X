@@ -1,0 +1,224 @@
+package dev.bloodcontracts.core;
+
+import dev.bloodcontracts.BloodContracts;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.saveddata.SavedData;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Bounties (active and history) and pending deliveries, saved together on the Overworld so a crash can never
+ * persist "bounty claimed" without "delivery owed".
+ * <p>
+ * Mutators are package-private: only {@link BountyManager} changes this data.
+ * <p>
+ * An entry whose item cannot be decoded (its mod was removed) is logged and kept as raw NBT. It is written back
+ * untouched on save and decoded again on the next load, so re-adding the mod restores it.
+ */
+public class BountySavedData extends SavedData {
+    public static final String NAME = BloodContracts.MODID + "_bounties";
+    public static final Factory<BountySavedData> FACTORY = new Factory<>(BountySavedData::new, BountySavedData::load);
+    private static final int FORMAT_VERSION = 1;
+
+    private final Map<UUID, Bounty> active = new LinkedHashMap<>();
+    /** Oldest first. */
+    private final Deque<Bounty> history = new ArrayDeque<>();
+    private final List<PendingDelivery> deliveries = new ArrayList<>();
+    private final List<CompoundTag> unreadableBounties = new ArrayList<>();
+    private final List<CompoundTag> unreadableDeliveries = new ArrayList<>();
+
+    public Collection<Bounty> activeBounties() {
+        return Collections.unmodifiableCollection(active.values());
+    }
+
+    public Optional<Bounty> active(UUID id) {
+        return Optional.ofNullable(active.get(id));
+    }
+
+    /** Oldest first. */
+    public List<Bounty> history() {
+        return List.copyOf(history);
+    }
+
+    public List<PendingDelivery> deliveries() {
+        return Collections.unmodifiableList(deliveries);
+    }
+
+    public int unreadableEntries() {
+        return unreadableBounties.size() + unreadableDeliveries.size();
+    }
+
+    void putActive(Bounty bounty) {
+        if (!bounty.isActive()) {
+            throw new IllegalArgumentException("Not active: " + bounty.id());
+        }
+        active.put(bounty.id(), bounty);
+    }
+
+    void removeActive(UUID id) {
+        active.remove(id);
+    }
+
+    void addHistory(Bounty closed, int maxSize) {
+        history.addLast(closed);
+        while (history.size() > Math.max(0, maxSize)) {
+            history.removeFirst();
+        }
+    }
+
+    void addDelivery(PendingDelivery delivery) {
+        deliveries.add(delivery);
+    }
+
+    boolean removeDelivery(PendingDelivery delivery) {
+        return deliveries.remove(delivery);
+    }
+
+    void clearAll() {
+        active.clear();
+        history.clear();
+        deliveries.clear();
+        unreadableBounties.clear();
+        unreadableDeliveries.clear();
+    }
+
+    // ---------------------------------------------------------------- serialization
+
+    @Override
+    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+        tag.putInt("FormatVersion", FORMAT_VERSION);
+        ListTag activeList = new ListTag();
+        active.values().forEach(b -> activeList.add(writeBounty(b, registries)));
+        unreadableBounties.forEach(raw -> activeList.add(raw.copy()));
+        tag.put("Active", activeList);
+
+        ListTag historyList = new ListTag();
+        history.forEach(b -> historyList.add(writeBounty(b, registries)));
+        tag.put("History", historyList);
+
+        ListTag deliveryList = new ListTag();
+        deliveries.forEach(d -> deliveryList.add(writeDelivery(d, registries)));
+        unreadableDeliveries.forEach(raw -> deliveryList.add(raw.copy()));
+        tag.put("Deliveries", deliveryList);
+        return tag;
+    }
+
+    public static BountySavedData load(CompoundTag tag, HolderLookup.Provider registries) {
+        BountySavedData data = new BountySavedData();
+        for (Tag t : tag.getList("Active", Tag.TAG_COMPOUND)) {
+            CompoundTag raw = (CompoundTag) t;
+            Bounty b = readBounty(raw, registries);
+            if (b != null && b.isActive()) {
+                data.active.put(b.id(), b);
+            } else {
+                BloodContracts.LOGGER.error("Blood Contracts: could not decode active bounty {}; keeping its raw data untouched", raw);
+                data.unreadableBounties.add(raw.copy());
+            }
+        }
+        for (Tag t : tag.getList("History", Tag.TAG_COMPOUND)) {
+            Bounty b = readBounty((CompoundTag) t, registries);
+            if (b != null && !b.isActive()) {
+                data.history.addLast(b);
+            }
+        }
+        for (Tag t : tag.getList("Deliveries", Tag.TAG_COMPOUND)) {
+            CompoundTag raw = (CompoundTag) t;
+            PendingDelivery d = readDelivery(raw, registries);
+            if (d != null) {
+                data.deliveries.add(d);
+            } else {
+                BloodContracts.LOGGER.error("Blood Contracts: could not decode pending delivery {}; keeping its raw data untouched", raw);
+                data.unreadableDeliveries.add(raw.copy());
+            }
+        }
+        return data;
+    }
+
+    static CompoundTag writeBounty(Bounty b, HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        tag.putUUID("Id", b.id());
+        tag.putUUID("Sponsor", b.sponsor());
+        tag.putUUID("Target", b.target());
+        if (!b.reward().isEmpty()) {
+            tag.put("Reward", b.reward().save(registries));
+        }
+        tag.putLong("CreatedAt", b.createdAt());
+        tag.putString("State", b.state().name());
+        if (b.claimedBy() != null) {
+            tag.putUUID("ClaimedBy", b.claimedBy());
+        }
+        tag.putLong("ClosedAt", b.closedAt());
+        tag.putString("RewardItem", b.rewardItem().toString());
+        tag.putInt("RewardCount", b.rewardCount());
+        return tag;
+    }
+
+    static @Nullable Bounty readBounty(CompoundTag tag, HolderLookup.Provider registries) {
+        try {
+            BountyState state = BountyState.valueOf(tag.getString("State"));
+            ItemStack reward = ItemStack.EMPTY;
+            if (state == BountyState.ACTIVE) {
+                Optional<ItemStack> parsed = tag.contains("Reward", Tag.TAG_COMPOUND)
+                        ? ItemStack.parse(registries, tag.getCompound("Reward"))
+                        : Optional.empty();
+                if (parsed.isEmpty() || parsed.get().isEmpty()) {
+                    return null;
+                }
+                reward = parsed.get();
+            }
+            ResourceLocation rewardItem = ResourceLocation.tryParse(tag.getString("RewardItem"));
+            return new Bounty(
+                    tag.getUUID("Id"),
+                    tag.getUUID("Sponsor"),
+                    tag.getUUID("Target"),
+                    reward,
+                    tag.getLong("CreatedAt"),
+                    state,
+                    tag.hasUUID("ClaimedBy") ? tag.getUUID("ClaimedBy") : null,
+                    tag.getLong("ClosedAt"),
+                    rewardItem != null ? rewardItem : ResourceLocation.withDefaultNamespace("air"),
+                    tag.getInt("RewardCount"));
+        } catch (RuntimeException e) {
+            BloodContracts.LOGGER.error("Blood Contracts: malformed bounty entry {}", tag, e);
+            return null;
+        }
+    }
+
+    static CompoundTag writeDelivery(PendingDelivery d, HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        tag.putUUID("Id", d.id());
+        tag.putUUID("Recipient", d.recipient());
+        tag.put("Item", d.stack().save(registries));
+        tag.putUUID("Bounty", d.bountyId());
+        tag.putString("Reason", d.reason().name());
+        return tag;
+    }
+
+    static @Nullable PendingDelivery readDelivery(CompoundTag tag, HolderLookup.Provider registries) {
+        try {
+            Optional<ItemStack> stack = ItemStack.parse(registries, tag.getCompound("Item"));
+            if (stack.isEmpty() || stack.get().isEmpty()) {
+                return null;
+            }
+            return new PendingDelivery(tag.getUUID("Id"), tag.getUUID("Recipient"), stack.get(), tag.getUUID("Bounty"),
+                    PendingDelivery.Reason.valueOf(tag.getString("Reason")));
+        } catch (RuntimeException e) {
+            BloodContracts.LOGGER.error("Blood Contracts: malformed delivery entry {}", tag, e);
+            return null;
+        }
+    }
+}
