@@ -45,3 +45,6 @@ et `client3` (`Joueur3`, `run/client3`). Les noms différents donnent des UUID d
    « Signer ». `Joueur2` (chasseur) tue `Joueur3` : il reçoit l'objet. Si `Joueur1` tue lui-même la cible, sa prime reste active.
 
 État de la matrice de tests : [docs/TEST_STATUS.md](docs/TEST_STATUS.md). Spécification : [CLAUDE.md](CLAUDE.md).
+
+## Licence
+MIT, voir [LICENSE](LICENSE).

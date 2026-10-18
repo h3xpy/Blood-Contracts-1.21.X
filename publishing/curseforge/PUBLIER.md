@@ -12,8 +12,8 @@ Tout ce qu'il faut est dans ce dossier. Les images se régénèrent avec
 | **Logo / avatar** | `images/logo_400.png` (400×400) |
 | **Catégorie principale** | Adventure and RPG |
 | **Catégories secondaires** | Server Utility, Miscellaneous |
-| **Licence** | À choisir. Le projet est actuellement en « All Rights Reserved » (`mod_license` dans `gradle.properties`). Pour un mod entre potes, **MIT** ou **LGPL-3.0** sont courantes. Change aussi `mod_license` si tu changes la licence. |
-| **Liens** | Source / Issues : ton dépôt GitHub, si tu le publies |
+| **Licence** | **MIT** (fichier `LICENSE`, `mod_license=MIT`) |
+| **Liens** | Source et Issues : https://github.com/h3xpy/Blood-Contracts-1.21.X |
 
 ## 2. Description
 Dans l'éditeur de description, choisis le mode **Markdown**, puis colle `description_en.md` (anglais, recommandé :
@@ -61,7 +61,6 @@ aussi de vraies captures : prends-en 3 ou 4 en jeu (touche **F2**, puis dossier 
 | Related projects | **Create Big Cannons** : *Optional Dependency* ; **CBC Enchanced Shells** : *Optional Dependency* ; **Create** : *Optional Dependency* |
 
 ## 5. Avant de cliquer sur Publier
-- [ ] Choisir la licence (et mettre à jour `mod_license`).
 - [ ] Remplacer les 5 marqueurs d'URL d'image dans la description.
 - [ ] Ajouter 2 ou 3 vraies captures d'écran.
 - [ ] Vérifier que le jar uploadé est bien celui de `build/libs` (et non un jar de test).
