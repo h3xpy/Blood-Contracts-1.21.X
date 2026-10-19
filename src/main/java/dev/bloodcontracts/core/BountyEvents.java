@@ -22,6 +22,7 @@ public final class BountyEvents {
         gameBus.addListener(BountyEvents::onLogin);
         gameBus.addListener(BountyEvents::onLogout);
         gameBus.addListener(BountyEvents::onServerTick);
+        gameBus.addListener(BountyEvents::onServerStarted);
         gameBus.addListener(BountyEvents::onServerStopped);
         gameBus.addListener(BountyEvents::onRegisterCommands);
     }
@@ -52,6 +53,10 @@ public final class BountyEvents {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         BountyManager.get(event.getServer()).tick();
+    }
+
+    private static void onServerStarted(net.neoforged.neoforge.event.server.ServerStartedEvent event) {
+        BountyManager.get(event.getServer()).onServerStarted();
     }
 
     private static void onServerStopped(ServerStoppedEvent event) {

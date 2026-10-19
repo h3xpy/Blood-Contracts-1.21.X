@@ -6,7 +6,13 @@ import dev.bloodcontracts.attribution.DamageLedger;
 import dev.bloodcontracts.attribution.KillAttributor;
 import dev.bloodcontracts.attribution.ResponsibleResolver;
 import dev.bloodcontracts.config.BCConfig;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.function.Function;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +28,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.LevelResource;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -433,6 +440,62 @@ public final class BountyManager {
     }
 
     // ---------------------------------------------------------------- lifecycle hooks
+
+    /**
+     * {@code ServerStartedEvent}: registers every player who already has a save on this world (playerdata/*.dat), so
+     * players who joined before the mod was installed can be targeted without logging in again. Names come from the
+     * server's profile cache (usercache.json); a player whose name is unknown is skipped until their next login.
+     */
+    public void onServerStarted() {
+        GameProfileCache cache = server.getProfileCache();
+        int added = importKnownPlayers(listPlayerData(server.getWorldPath(LevelResource.PLAYER_DATA_DIR)),
+                id -> cache == null ? Optional.empty() : cache.get(id).map(com.mojang.authlib.GameProfile::getName));
+        if (added > 0) {
+            BloodContracts.LOGGER.info("Blood Contracts: registered {} existing player(s) as possible targets", added);
+        }
+    }
+
+    /** Adds the players not known yet; never renames a known one. Returns how many were added. */
+    @VisibleForTesting
+    public int importKnownPlayers(Collection<UUID> players, Function<UUID, Optional<String>> names) {
+        BountySavedData data = data();
+        int added = 0;
+        for (UUID id : players) {
+            if (data.knownName(id).isPresent()) {
+                continue;
+            }
+            Optional<String> name = names.apply(id).filter(n -> !n.isBlank());
+            if (name.isPresent() && data.rememberPlayer(id, name.get())) {
+                added++;
+            }
+        }
+        if (added > 0) {
+            data.setDirty();
+        }
+        return added;
+    }
+
+    /** UUIDs of the {@code <uuid>.dat} files in a playerdata directory (other files are ignored). */
+    @VisibleForTesting
+    public static List<UUID> listPlayerData(Path dir) {
+        List<UUID> ids = new ArrayList<>();
+        if (!Files.isDirectory(dir)) {
+            return ids;
+        }
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(dir, "*.dat")) {
+            for (Path f : files) {
+                String name = f.getFileName().toString();
+                try {
+                    ids.add(UUID.fromString(name.substring(0, name.length() - 4)));
+                } catch (IllegalArgumentException ignored) {
+                    // not a player file
+                }
+            }
+        } catch (IOException e) {
+            BloodContracts.LOGGER.warn("Blood Contracts: could not list {}", dir, e);
+        }
+        return ids;
+    }
 
     /** {@code PlayerLoggedInEvent}. */
     public void onPlayerLogin(ServerPlayer player) {

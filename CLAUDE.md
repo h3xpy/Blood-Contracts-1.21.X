@@ -91,7 +91,8 @@ config/                  // ModConfigSpec (serveur)
 
 ### Ajouts du 2026-10-18
 - Une prime peut offrir jusqu'à 9 piles différentes (menu de création : 1 emplacement, « + objets » pour 9).
-- Primes sur des joueurs hors ligne : tout joueur déjà connecté (registre persisté dans `BountySavedData`).
+- Primes sur des joueurs hors ligne : tout joueur déjà connecté (registre persisté dans `BountySavedData`, complété
+  au démarrage du serveur par les fichiers `playerdata/*.dat` du monde, nom depuis le cache de profils).
 - Alerte plein écran « stressante » pour la cible en ligne (ou à sa connexion), hors chat ; le nom du commanditaire
   y figure si `alertRevealsSponsor` (true par défaut).
 

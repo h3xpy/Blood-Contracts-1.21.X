@@ -10,8 +10,8 @@ jamais leur zone.
 | Suite | Commande | Résultat |
 |---|---|---|
 | JUnit (logique pure) | `./gradlew test` | ✅ 40/40 |
-| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 53/53 |
-| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 53 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 61/61 |
+| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 54/54 |
+| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 54 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 62/62 |
 
 Les serveurs de GameTest s'arrêtent avec un code non nul si un test échoue. Chaque GameTest tourne dans son propre batch
 (ils partagent l'état global du `BountyManager`) et commence par `TestSupport.reset()`.
@@ -83,6 +83,7 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 | ✅ | Notification « à réclamer » (hors chat) | `hunterIsToldRewardsAreWaiting` | En ligne et à la reconnexion |
 | ✅ | Prime sur un joueur hors ligne | `bountyOnOfflinePlayerFromTheMenu`, `bountyOnOfflinePlayerByCommand` | Liste des joueurs connus envoyée au client ; commande insensible à la casse |
 | ✅ | Alerte à la cible en ligne, à elle seule | `onlineTargetGetsTheAlert` | Nom du commanditaire selon `alertRevealsSponsor` |
+| ✅ | Joueurs venus avant l'installation du mod : ciblables sans se reconnecter | `playersWithASaveBecomeTargets` | Import des fichiers `playerdata/*.dat` au démarrage, nom depuis le cache du serveur |
 | ✅ | Alerte à la connexion d'une cible | `offlineTargetIsAlertedOnLogin` | |
 | ✅ | Ancien format de sauvegarde (une seule récompense) | `BountySavedDataTest.legacySingleRewardFormatIsRead` | Les mondes créés avec la 0.1 restent lisibles |
 

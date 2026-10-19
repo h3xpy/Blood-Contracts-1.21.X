@@ -298,4 +298,39 @@ public class FeatureTests {
         helper.assertTrue(TestPlayers.sentPayloads(sponsorBack, BountyAlertPayload.class).isEmpty(), "sponsor alerted on login");
         helper.succeed();
     }
+
+    // ---------------------------------------------------------------- players who joined before the mod
+
+    @GameTest(template = T, batch = "import_known_players")
+    public static void playersWithASaveBecomeTargets(GameTestHelper helper) throws java.io.IOException {
+        BountyManager manager = TestSupport.reset(helper);
+        ServerPlayer sponsor = TestPlayers.sponsor(helper);
+        UUID veteran = UUID.randomUUID(), nameless = UUID.randomUUID();
+        // A playerdata folder as the server leaves it: player files plus unrelated ones.
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("bc-playerdata");
+        for (String f : List.of(veteran + ".dat", nameless + ".dat", veteran + ".dat_old", "notauuid.dat")) {
+            java.nio.file.Files.writeString(dir.resolve(f), "");
+        }
+        List<UUID> found = BountyManager.listPlayerData(dir);
+        helper.assertTrue(found.size() == 2 && found.containsAll(List.of(veteran, nameless)), "playerdata scan wrong: " + found);
+
+        int added = manager.importKnownPlayers(found, id -> id.equals(veteran) ? Optional.of("OldTimer") : Optional.empty());
+
+        helper.assertTrue(added == 1, "expected 1 import, got " + added);
+        helper.assertTrue(manager.isKnownPlayer(veteran) && manager.nameOf(veteran).equals("OldTimer"), "veteran not registered");
+        helper.assertTrue(manager.data().knownName(nameless).isEmpty(), "a player without a known name was registered");
+        // Known players are never renamed by an import, and importing twice adds nothing.
+        helper.assertTrue(manager.importKnownPlayers(List.of(veteran, sponsor.getUUID()), id -> Optional.of("Renamed")) == 0, "re-import added players");
+        helper.assertTrue(manager.nameOf(veteran).equals("OldTimer"), "import renamed a known player");
+        // The veteran shows up in the creation screen and can be targeted without having logged in.
+        openMenu(sponsor);
+        List<KnownPlayersPayload> known = TestPlayers.sentPayloads(sponsor, KnownPlayersPayload.class);
+        helper.assertTrue(known.get(known.size() - 1).players().stream().anyMatch(p -> p.id().equals(veteran) && !p.online()),
+                "imported player missing from the picker");
+        UUID marker = UUID.randomUUID();
+        ((BountyCreateMenu) sponsor.containerMenu).rewardContainer().setItem(0, marked(Items.DIAMOND, 1, marker));
+        helper.assertTrue(ServerPayloadHandler.handleCreate(sponsor, new CreateBountyRequest(veteran)).isOk(), "bounty on imported player refused");
+        assertConserved(helper, manager, marker, 1);
+        helper.succeed();
+    }
 }
