@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import com.mojang.authlib.properties.Property;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -42,6 +43,8 @@ public class BountySavedData extends SavedData {
     private final List<CompoundTag> unreadableDeliveries = new ArrayList<>();
     /** Every player who ever joined (UUID → last known name): valid bounty targets even while offline. */
     private final Map<UUID, String> knownPlayers = new LinkedHashMap<>();
+    /** Last signed skin ("textures" profile property) of each known player, so offline players keep their face. */
+    private final Map<UUID, Property> skins = new LinkedHashMap<>();
 
     public Collection<Bounty> activeBounties() {
         return Collections.unmodifiableCollection(active.values());
@@ -66,6 +69,15 @@ public class BountySavedData extends SavedData {
 
     public Map<UUID, String> knownPlayers() {
         return Collections.unmodifiableMap(knownPlayers);
+    }
+
+    public Optional<Property> skin(UUID player) {
+        return Optional.ofNullable(skins.get(player));
+    }
+
+    /** @return true if this changed the data */
+    boolean rememberSkin(UUID player, Property textures) {
+        return !textures.equals(skins.put(player, textures));
     }
 
     /** @return true if this changed the data */
@@ -110,6 +122,7 @@ public class BountySavedData extends SavedData {
         unreadableBounties.clear();
         unreadableDeliveries.clear();
         knownPlayers.clear();
+        skins.clear();
     }
 
     // ---------------------------------------------------------------- serialization
@@ -139,6 +152,18 @@ public class BountySavedData extends SavedData {
             known.add(entry);
         });
         tag.put("KnownPlayers", known);
+
+        ListTag skinList = new ListTag();
+        skins.forEach((id, p) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("Id", id);
+            entry.putString("Value", p.value());
+            if (p.signature() != null) {
+                entry.putString("Signature", p.signature());
+            }
+            skinList.add(entry);
+        });
+        tag.put("Skins", skinList);
         return tag;
     }
 
@@ -174,6 +199,13 @@ public class BountySavedData extends SavedData {
             CompoundTag entry = (CompoundTag) t;
             if (entry.hasUUID("Id")) {
                 data.knownPlayers.put(entry.getUUID("Id"), entry.getString("Name"));
+            }
+        }
+        for (Tag t : tag.getList("Skins", Tag.TAG_COMPOUND)) {
+            CompoundTag entry = (CompoundTag) t;
+            if (entry.hasUUID("Id") && !entry.getString("Value").isEmpty()) {
+                data.skins.put(entry.getUUID("Id"), new Property("textures", entry.getString("Value"),
+                        entry.contains("Signature") ? entry.getString("Signature") : null));
             }
         }
         return data;

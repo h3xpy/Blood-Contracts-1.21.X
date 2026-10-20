@@ -8,6 +8,9 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.LevelLoadingScreen;
+import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -26,7 +29,13 @@ public final class BountyAlertOverlay {
     private static final int DURATION = 140;
     private static final int LOGIN_DURATION = 100;
 
+    /** Extra wait after joining a world before a login alert, so the player actually sees it. */
+    private static final int LOGIN_GRACE = 40;
+
     private static @Nullable BountyAlertPayload current;
+    /** The alert waits (age stays 0, no sound) until the player is in the world and no loading screen is shown. */
+    private static boolean started;
+    private static int waitTicks;
     private static int age;
     private static int duration;
     private static int nextBeat;
@@ -36,18 +45,41 @@ public final class BountyAlertOverlay {
 
     public static void trigger(BountyAlertPayload alert) {
         current = alert;
+        started = false;
         age = 0;
+        waitTicks = alert.onLogin() ? LOGIN_GRACE : 0;
         duration = alert.onLogin() ? LOGIN_DURATION : DURATION;
         nextBeat = 6;
+    }
+
+    /** True while the world is not on screen yet (joining, loading terrain, changing dimension). */
+    private static boolean worldHidden(Minecraft mc) {
+        return mc.level == null || mc.player == null
+                || mc.screen instanceof ReceivingLevelScreen || mc.screen instanceof LevelLoadingScreen
+                || mc.screen instanceof ConnectScreen || mc.getOverlay() != null;
+    }
+
+    private static void start() {
+        started = true;
         var sounds = Minecraft.getInstance().getSoundManager();
         sounds.play(SimpleSoundInstance.forUI(SoundEvents.ELDER_GUARDIAN_CURSE, 0.8f, 0.9f));
         sounds.play(SimpleSoundInstance.forUI(SoundEvents.BELL_BLOCK, 0.5f, 1.0f));
     }
 
-    /** Client tick: heartbeat that speeds up while the alert is on screen. */
+    /** Client tick: waits for the world, then runs the alert with a heartbeat that speeds up. */
     public static void tick() {
         if (current == null) {
             return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (!started) {
+            if (worldHidden(mc)) {
+                return;
+            }
+            if (waitTicks-- > 0) {
+                return;
+            }
+            start();
         }
         age++;
         if (age >= duration) {
@@ -55,7 +87,7 @@ public final class BountyAlertOverlay {
             return;
         }
         if (age >= nextBeat && age < duration - 20) {
-            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.WARDEN_HEARTBEAT, 1.0f + age / 300f, 1.0f));
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.WARDEN_HEARTBEAT, 1.0f + age / 300f, 1.0f));
             int interval = Math.max(7, 18 - age / 10);
             nextBeat = age + interval;
         }
@@ -64,7 +96,7 @@ public final class BountyAlertOverlay {
     public static void render(GuiGraphics g, DeltaTracker delta) {
         BountyAlertPayload alert = current;
         Minecraft mc = Minecraft.getInstance();
-        if (alert == null || mc.options.hideGui) {
+        if (alert == null || !started || worldHidden(mc)) {
             return;
         }
         float t = age + delta.getGameTimeDeltaPartialTick(false);

@@ -503,6 +503,11 @@ public final class BountyManager {
         if (data.rememberPlayer(player.getUUID(), player.getGameProfile().getName())) {
             data.setDirty();
         }
+        player.getGameProfile().getProperties().get("textures").stream().findFirst().ifPresent(textures -> {
+            if (data.rememberSkin(player.getUUID(), textures)) {
+                data.setDirty();
+            }
+        });
         notifyRewardsAvailable(player.getUUID());
         List<Bounty> onMe = activeOn(player.getUUID());
         if (!onMe.isEmpty()) {

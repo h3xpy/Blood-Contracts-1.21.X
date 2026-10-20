@@ -333,4 +333,33 @@ public class FeatureTests {
         assertConserved(helper, manager, marker, 1);
         helper.succeed();
     }
+
+    // ---------------------------------------------------------------- skins of offline players
+
+    @GameTest(template = T, batch = "offline_skins")
+    public static void offlinePlayersKeepTheirSkin(GameTestHelper helper) {
+        BountyManager manager = TestSupport.reset(helper);
+        ServerPlayer viewer = TestPlayers.sponsor(helper);
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "SkinnedGuy");
+        profile.getProperties().put("textures", new com.mojang.authlib.properties.Property("textures", "c2tpbi12YWx1ZQ==", "c2lnbmF0dXJl"));
+        ServerPlayer skinned = TestPlayers.login(helper, profile, new Vec3(5.5, 1, 1.5));
+        helper.assertTrue(manager.data().skin(skinned.getUUID()).filter(p -> p.value().equals("c2tpbi12YWx1ZQ==")
+                && "c2lnbmF0dXJl".equals(p.signature())).isPresent(), "skin not recorded at login");
+        TestPlayers.logout(skinned);
+
+        // Offline now: the viewer still receives the recorded skin with the known players (creation menu and board).
+        ServerPayloadHandler.handleListRequest(viewer);
+        List<KnownPlayersPayload> sent = TestPlayers.sentPayloads(viewer, KnownPlayersPayload.class);
+        helper.assertTrue(!sent.isEmpty(), "known players not sent with the board");
+        var entry = sent.get(sent.size() - 1).players().stream().filter(p -> p.id().equals(profile.getId())).findFirst();
+        helper.assertTrue(entry.isPresent() && !entry.get().online(), "offline player missing");
+        helper.assertTrue(entry.get().skin().filter("c2tpbi12YWx1ZQ=="::equals).isPresent()
+                && entry.get().skinSignature().filter("c2lnbmF0dXJl"::equals).isPresent(), "skin not sent for the offline player");
+
+        // Survives a restart.
+        var registries = helper.getLevel().registryAccess();
+        var reloaded = dev.bloodcontracts.core.BountySavedData.load(manager.data().save(new net.minecraft.nbt.CompoundTag(), registries), registries);
+        helper.assertTrue(reloaded.skin(profile.getId()).filter(p -> p.value().equals("c2tpbi12YWx1ZQ==")).isPresent(), "skin lost on reload");
+        helper.succeed();
+    }
 }

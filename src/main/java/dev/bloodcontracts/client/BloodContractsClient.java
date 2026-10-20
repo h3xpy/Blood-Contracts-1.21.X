@@ -16,6 +16,7 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
+import java.util.List;
 import org.lwjgl.glfw.GLFW;
 
 @Mod(value = BloodContracts.MODID, dist = Dist.CLIENT)
@@ -34,6 +35,10 @@ public class BloodContractsClient {
         }));
         NeoForge.EVENT_BUS.addListener((ScreenEvent.Render.Post e) ->
                 BountyAlertOverlay.render(e.getGuiGraphics(), Minecraft.getInstance().getTimer()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) -> {
+            ClientSkins.clear();
+            ClientPayloadHandler.knownPlayers = List.of();
+        });
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> {
             BountyAlertOverlay.tick();
             Minecraft mc = Minecraft.getInstance();

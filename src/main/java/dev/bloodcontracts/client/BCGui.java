@@ -124,11 +124,9 @@ final class BCGui {
         g.pose().popPose();
     }
 
-    /** Draws a player's face: their real skin when online, the default skin for their UUID otherwise. */
+    /** Draws a player's face with their real skin, online or not (see {@link ClientSkins}). */
     static void face(GuiGraphics g, UUID player, int x, int y, int size) {
-        var connection = Minecraft.getInstance().getConnection();
-        PlayerInfo info = connection != null ? connection.getPlayerInfo(player) : null;
-        PlayerSkin skin = info != null ? info.getSkin() : DefaultPlayerSkin.get(player);
+        PlayerSkin skin = ClientSkins.get(player);
         g.fill(x - 1, y - 1, x + size + 1, y + size + 1, WOOD_DARK);
         PlayerFaceRenderer.draw(g, skin, x, y, size);
     }

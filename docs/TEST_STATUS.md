@@ -10,8 +10,8 @@ jamais leur zone.
 | Suite | Commande | Résultat |
 |---|---|---|
 | JUnit (logique pure) | `./gradlew test` | ✅ 40/40 |
-| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 54/54 |
-| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 54 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 62/62 |
+| GameTests, sans Create ni CBC (NeoForge 21.1.248) | `./gradlew runGameTestServer` | ✅ 55/55 |
+| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells (« More Shells ») 1.4.0 (les 55 tests de base plus 8 tests de compat) | `./gradlew runGameTestServerCompat` | ✅ 63/63 |
 
 Les serveurs de GameTest s'arrêtent avec un code non nul si un test échoue. Chaque GameTest tourne dans son propre batch
 (ils partagent l'état global du `BountyManager`) et commence par `TestSupport.reset()`.
@@ -84,6 +84,7 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 | ✅ | Prime sur un joueur hors ligne | `bountyOnOfflinePlayerFromTheMenu`, `bountyOnOfflinePlayerByCommand` | Liste des joueurs connus envoyée au client ; commande insensible à la casse |
 | ✅ | Alerte à la cible en ligne, à elle seule | `onlineTargetGetsTheAlert` | Nom du commanditaire selon `alertRevealsSponsor` |
 | ✅ | Joueurs venus avant l'installation du mod : ciblables sans se reconnecter | `playersWithASaveBecomeTargets` | Import des fichiers `playerdata/*.dat` au démarrage, nom depuis le cache du serveur |
+| ✅ | Skin des joueurs hors ligne (côté serveur) | `offlinePlayersKeepTheirSkin` | Propriété `textures` signée enregistrée à la connexion, persistée, envoyée avec les joueurs connus |
 | ✅ | Alerte à la connexion d'une cible | `offlineTargetIsAlertedOnLogin` | |
 | ✅ | Ancien format de sauvegarde (une seule récompense) | `BountySavedDataTest.legacySingleRewardFormatIsRead` | Les mondes créés avec la 0.1 restent lisibles |
 
@@ -103,6 +104,8 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 
 ## Ce qui demande un humain
 
+- ❌ (non automatisable) **Affichage des têtes hors ligne côté client** (chargement du skin) et **délai de l'alerte** jusqu'à
+  ce que le monde soit visible (écrans de chargement) : à vérifier en jeu.
 - ❌ (non automatisable) **Rendu et son de l'alerte « prime sur ta tête »**, du toast « à réclamer », de l'onglet « À réclamer »
   et de l'écran de création (recherche, joueurs hors ligne grisés, bouton « + objets »).
 - ❌ (non automatisable) **Rendu visuel des écrans** (thème « avis de recherche » : parchemin, têtes des cibles, tampons ;

@@ -27,6 +27,7 @@ public final class ClientPayloadHandler {
 
     public static void handleKnownPlayers(KnownPlayersPayload payload) {
         knownPlayers = List.copyOf(payload.players());
+        ClientSkins.update(payload.players());
         if (Minecraft.getInstance().screen instanceof BountyCreateScreen create) {
             create.refreshCandidates();
         }

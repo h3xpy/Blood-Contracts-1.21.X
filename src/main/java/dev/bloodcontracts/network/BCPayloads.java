@@ -123,12 +123,23 @@ public final class BCPayloads {
 
     /** Every player the server knows (online or not), for the creation screen's target picker. */
     public record KnownPlayersPayload(List<KnownPlayer> players) implements CustomPacketPayload {
-        public record KnownPlayer(UUID id, String name, boolean online) {
+        /**
+         * @param skin       signed "textures" property value recorded at the player's last login, so the client can show
+         *                   their real face while they are offline
+         * @param skinSignature its signature
+         */
+        public record KnownPlayer(UUID id, String name, boolean online, Optional<String> skin, Optional<String> skinSignature) {
             public static final StreamCodec<RegistryFriendlyByteBuf, KnownPlayer> STREAM_CODEC = StreamCodec.composite(
                     UUIDUtil.STREAM_CODEC, KnownPlayer::id,
                     ByteBufCodecs.STRING_UTF8, KnownPlayer::name,
                     ByteBufCodecs.BOOL, KnownPlayer::online,
+                    ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8), KnownPlayer::skin,
+                    ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8), KnownPlayer::skinSignature,
                     KnownPlayer::new);
+
+            public KnownPlayer(UUID id, String name, boolean online) {
+                this(id, name, online, Optional.empty(), Optional.empty());
+            }
         }
 
         public static final Type<KnownPlayersPayload> TYPE = BCPayloads.payloadType("known_players");

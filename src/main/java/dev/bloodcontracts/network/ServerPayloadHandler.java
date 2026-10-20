@@ -69,6 +69,8 @@ public final class ServerPayloadHandler {
     }
 
     public static void handleListRequest(ServerPlayer player) {
+        // The board shows target faces: send who they are (and their skins) along with the list.
+        send(player, knownPlayers(player));
         sendList(player, false, null, false);
     }
 
@@ -79,14 +81,21 @@ public final class ServerPayloadHandler {
         }
     }
 
-    /** Every player the server knows except the viewer, online first. Offline players are valid targets. */
+    /**
+     * Every player the server knows except the viewer, online first, with their last recorded skin (so offline players
+     * keep their face). Offline players are valid targets.
+     */
     public static KnownPlayersPayload knownPlayers(ServerPlayer viewer) {
         BountyManager manager = BountyManager.get(viewer.server);
         List<KnownPlayer> players = new ArrayList<>();
         for (Map.Entry<UUID, String> e : manager.data().knownPlayers().entrySet()) {
-            if (!e.getKey().equals(viewer.getUUID())) {
-                players.add(new KnownPlayer(e.getKey(), e.getValue(), viewer.server.getPlayerList().getPlayer(e.getKey()) != null));
+            if (e.getKey().equals(viewer.getUUID())) {
+                continue;
             }
+            var skin = manager.data().skin(e.getKey());
+            players.add(new KnownPlayer(e.getKey(), e.getValue(), viewer.server.getPlayerList().getPlayer(e.getKey()) != null,
+                    skin.map(com.mojang.authlib.properties.Property::value),
+                    skin.map(com.mojang.authlib.properties.Property::signature)));
         }
         players.sort(Comparator.comparing(KnownPlayer::online).reversed()
                 .thenComparing(KnownPlayer::name, String.CASE_INSENSITIVE_ORDER));
@@ -108,6 +117,9 @@ public final class ServerPayloadHandler {
     }
 
     public static void sendList(ServerPlayer player, boolean openScreen, @Nullable Component status, boolean isError) {
+        if (openScreen) {
+            send(player, knownPlayers(player));
+        }
         if (!send(player, buildList(player, openScreen, status, isError)) && status != null) {
             // Client without the mod's screens: fall back to a chat message.
             player.sendSystemMessage(status);
