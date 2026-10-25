@@ -1,0 +1,16 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+
+[[mods]]
+modId="bloodcontracts_debug"
+version="0.0.0"
+displayName="Blood Contracts client debug scenarios"
+description='''Development only: scripted client scenarios with automatic screenshots. Never shipped.'''
+
+[[dependencies.bloodcontracts_debug]]
+modId="bloodcontracts"
+type="required"
+versionRange="[0,)"
+ordering="AFTER"
+side="CLIENT"

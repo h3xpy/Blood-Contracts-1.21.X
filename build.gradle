@@ -57,6 +57,11 @@ sourceSets {
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
     }
+    // Client debug scenarios (scripted screens + automatic screenshots), only for the alertDebug run.
+    clientdebug {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath
+    }
     // Compat GameTests: same as above plus Create, Create Big Cannons and Ritchie's Projectile Library at runtime.
     gametestCompat {
         compileClasspath += sourceSets.main.output
@@ -92,6 +97,9 @@ neoForge {
         }
         bloodcontracts_gametest_compat {
             sourceSet(sourceSets.gametestCompat)
+        }
+        bloodcontracts_debug {
+            sourceSet(sourceSets.clientdebug)
         }
     }
 
@@ -132,6 +140,16 @@ neoForge {
             loadedMods = [mods."${mod_id}", mods.bloodcontracts_gametest]
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             gameDirectory = project.file('run/gametest')
+        }
+
+        // Scripted client scenario: opens the "New World" save, triggers the bounty alert, switches screens and takes
+        // screenshots in run/screenshots, then quits. Used to check the alert's rendering without a human.
+        alertDebug {
+            client()
+            sourceSet = sourceSets.clientdebug
+            loadedMods = [mods."${mod_id}", mods.bloodcontracts_debug]
+            programArguments.addAll '--username', 'Joueur1', '--quickPlaySingleplayer', 'New World'
+            systemProperty 'bloodcontracts.debugScenario', 'alert'
         }
 
         // Same GameTests plus the compat ones, with Create, CBC and RPL loaded.
@@ -182,6 +200,7 @@ def extractCreateNested = tasks.register('extractCreateNested', Copy) {
 
 neoForge.addModdingDependenciesTo(sourceSets.gametest)
 neoForge.addModdingDependenciesTo(sourceSets.gametestCompat)
+neoForge.addModdingDependenciesTo(sourceSets.clientdebug)
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'

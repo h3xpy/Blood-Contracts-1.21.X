@@ -104,8 +104,11 @@ Tests JUnit : `BountyTest` (machine à états, éligibilité), `KillAttributorTe
 
 ## Ce qui demande un humain
 
-- ❌ (non automatisable) **Affichage des têtes hors ligne côté client** (chargement du skin) et **délai de l'alerte** jusqu'à
-  ce que le monde soit visible (écrans de chargement) : à vérifier en jeu.
+- ✅ (semi-automatique) **Alerte par-dessus les menus** : `./gradlew runAlertDebug` ouvre la sauvegarde « New World »,
+  déclenche l'alerte, passe par l'inventaire, le chat, le tableau, le menu pause et F1 en prenant des captures
+  (`run/screenshots/alert_*.png`), puis quitte. Les captures se relisent ensuite ; aucun clic humain n'est nécessaire.
+- ❌ (non automatisable) **Affichage des têtes hors ligne côté client** (chargement du skin) et **délai de l'alerte**
+  jusqu'à ce que le monde soit visible (écrans de chargement) : à vérifier en jeu.
 - ❌ (non automatisable) **Rendu et son de l'alerte « prime sur ta tête »**, du toast « à réclamer », de l'onglet « À réclamer »
   et de l'écran de création (recherche, joueurs hors ligne grisés, bouton « + objets »).
 - ❌ (non automatisable) **Rendu visuel des écrans** (thème « avis de recherche » : parchemin, têtes des cibles, tampons ;

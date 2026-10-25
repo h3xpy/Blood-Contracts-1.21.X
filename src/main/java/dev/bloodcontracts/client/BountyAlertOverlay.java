@@ -1,5 +1,6 @@
 package dev.bloodcontracts.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.bloodcontracts.BloodContracts;
 import dev.bloodcontracts.network.BCPayloads.BountyAlertPayload;
 import java.util.List;
@@ -109,6 +110,14 @@ public final class BountyAlertOverlay {
         float pulse = phase < 0.15f ? phase / 0.15f : 1 - (phase - 0.15f) / 0.85f;
 
         int w = g.guiWidth(), h = g.guiHeight();
+        // A menu is open: keep the vignette, but put the text in the top band so it does not cover the menu.
+        boolean overMenu = mc.screen != null;
+        // Screens since 1.21 blur the world behind them and leave the depth state such that plain fills would be
+        // discarded (only text survived). Draw on top of everything with our own, explicit state.
+        g.flush();
+        RenderSystem.disableDepthTest();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
         g.pose().pushPose();
         g.pose().translate(0, 0, 900);
 
@@ -130,11 +139,13 @@ public final class BountyAlertOverlay {
         Component title = Component.translatable(alert.onLogin() ? "bloodcontracts.alert.title_login" : "bloodcontracts.alert.title");
         float shake = strength * (alert.onLogin() ? 1.0f : 2.5f) * (0.5f + pulse);
         float sx = (SHAKE.nextFloat() - 0.5f) * 2 * shake, sy = (SHAKE.nextFloat() - 0.5f) * 2 * shake;
-        float scale = 3.0f + 0.25f * pulse;
+        float scale = overMenu ? 1.6f + 0.15f * pulse : 3.0f + 0.25f * pulse;
+        int titleY = overMenu ? 4 : h / 2 - 34;
+        int lineY = overMenu ? titleY + 16 : h / 2 - 4;
         int textAlpha = Mth.clamp((int) (255 * strength), 5, 255);
         boolean flicker = t < 20 && ((int) t / 2) % 2 == 0;
         g.pose().pushPose();
-        g.pose().translate(w / 2f + sx, h / 2f - 34 + sy, 0);
+        g.pose().translate(w / 2f + sx, titleY + sy, 0);
         g.pose().scale(scale, scale, 1);
         int tw = font.width(title);
         g.drawString(font, title, -tw / 2 + 1, 1, (textAlpha << 24), false);
@@ -146,15 +157,15 @@ public final class BountyAlertOverlay {
                 : alert.sponsorName().map(n -> (Component) Component.translatable("bloodcontracts.alert.by", n))
                         .orElse(Component.translatable("bloodcontracts.alert.by_unknown"));
         int lineColor = (textAlpha << 24) | 0xF0D0B0;
-        g.drawString(font, line, w / 2 - font.width(line) / 2, h / 2 - 4, lineColor, true);
+        g.drawString(font, line, w / 2 - font.width(line) / 2, lineY, lineColor, true);
         if (!alert.onLogin() && alert.bounties() > 1) {
             Component count = Component.translatable("bloodcontracts.alert.count", alert.bounties());
-            g.drawString(font, count, w / 2 - font.width(count) / 2, h / 2 + 8, (textAlpha << 24) | 0xFF5555, true);
+            g.drawString(font, count, w / 2 - font.width(count) / 2, lineY + (overMenu ? 10 : 12), (textAlpha << 24) | 0xFF5555, true);
         }
 
         List<ItemStack> rewards = alert.rewards();
         int shown = Math.min(rewards.size(), 9);
-        if (shown > 0 && strength > 0.3f) {
+        if (shown > 0 && strength > 0.3f && !overMenu) {
             int rx = w / 2 - shown * 10;
             int ry = h / 2 + 22;
             for (int i = 0; i < shown; i++) {
@@ -163,5 +174,7 @@ public final class BountyAlertOverlay {
             }
         }
         g.pose().popPose();
+        g.flush();
+        RenderSystem.enableDepthTest();
     }
 }
