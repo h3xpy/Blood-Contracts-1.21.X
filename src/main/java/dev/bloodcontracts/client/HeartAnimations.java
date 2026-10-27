@@ -24,14 +24,18 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * and breaks in two halves that fall away. Half hearts given back by the progressive return get a short version.
  * <p>
  * Purely visual: it watches the {@code bloodcontracts:heart_balance} modifier the server syncs on {@code MAX_HEALTH}.
+ * A change waits until the player can see their health bar: a heart lost on death plays after the respawn, one changed
+ * while a menu is open plays once it is closed.
  */
 public final class HeartAnimations {
     public static final ResourceLocation LAYER = ResourceLocation.fromNamespaceAndPath(BloodContracts.MODID, "heart_animations");
     private static final ResourceLocation FULL = ResourceLocation.withDefaultNamespace("hud/heart/full");
     private static final ResourceLocation HALF = ResourceLocation.withDefaultNamespace("hud/heart/half");
     private static final ResourceLocation CONTAINER = ResourceLocation.withDefaultNamespace("hud/heart/container");
-    /** Ticks to ignore changes after the local player entity is (re)created: respawn, dimension change, login. */
+    /** Ticks to wait for the attributes of a (re)created local player entity: respawn, dimension change, login. */
     private static final int SETTLE_TICKS = 20;
+    /** Ticks a change must be seen with the player alive and in game before it is animated. */
+    private static final int CONFIRM_TICKS = 5;
 
     /**
      * @param fill how much of the slot is red (0 empty container, 1 half, 2 full): before the loss, or after the gain
@@ -46,6 +50,10 @@ public final class HeartAnimations {
     private static final List<Anim> ANIMS = new ArrayList<>();
     private static int lastHp;
     private static float lastHealth;
+    private static boolean hasBaseline;
+    private static int readyTicks;
+    /** The player entity was recreated since the baseline (a respawn): a lost heart is shown as it was, full. */
+    private static boolean respawned;
     private static int lastEntityId = -1;
     private static int settle;
 
@@ -63,22 +71,43 @@ public final class HeartAnimations {
         LocalPlayer player = mc.player;
         if (player == null) {
             lastEntityId = -1;
+            hasBaseline = false;
+            respawned = false;
             ANIMS.clear();
             return;
         }
         int hp = balanceHp(player);
         if (player.getId() != lastEntityId) {
+            // New player entity (login, respawn, dimension change): its attributes arrive a moment later. The baseline
+            // is kept across respawns, so a heart lost on death is still shown once the player is back.
+            if (lastEntityId != -1 && hasBaseline) {
+                respawned = true;
+            }
             lastEntityId = player.getId();
             settle = SETTLE_TICKS;
         }
         if (settle > 0) {
             settle--;
-            lastHp = hp;
-        } else if (hp != lastHp) {
-            changed(mc, player, lastHp, hp);
-            lastHp = hp;
         }
-        lastHealth = player.getHealth();
+        // Changes wait until the player can see their health bar: alive, back in the game (no death screen, no menu).
+        // A change must also hold for a few such ticks: on death the new maximum can arrive a tick before the death
+        // itself, and the animation would then run behind the death screen.
+        boolean ready = settle == 0 && player.isAlive() && mc.screen == null;
+        readyTicks = ready ? readyTicks + 1 : 0;
+        if (ready) {
+            if (!hasBaseline) {
+                lastHp = hp; // just joined: what they have is not news
+                hasBaseline = true;
+            } else if (hp != lastHp && readyTicks >= CONFIRM_TICKS) {
+                changed(mc, player, lastHp, hp);
+                lastHp = hp;
+                respawned = false;
+            }
+            if (hp == lastHp) {
+                respawned = false;
+                lastHealth = player.getHealth();
+            }
+        }
         for (Iterator<Anim> it = ANIMS.iterator(); it.hasNext(); ) {
             Anim a = it.next();
             if (++a.age()[0] >= a.duration()) {
@@ -100,7 +129,7 @@ public final class HeartAnimations {
             int slot = diff > 0 ? first + i : last - i;
             boolean whole = low <= 2 * slot && high >= 2 * slot + 2;
             // red part of the slot as the bar shows it: after a gain, the current health; before a loss, last tick's
-            float health = diff > 0 ? player.getHealth() : lastHealth;
+            float health = diff > 0 ? player.getHealth() : respawned ? maxBefore : lastHealth;
             int fill = Mth.clamp(Mth.ceil(health) - 2 * slot, 0, 2);
             int hold = diff > 0 ? 0 : delay;
             int duration = diff > 0 ? (whole ? 34 : 18) : (whole ? VANILLA_LAG + hold + 22 : 16 + hold);
@@ -124,7 +153,7 @@ public final class HeartAnimations {
     /** GUI layer drawn just above the vanilla health bar. */
     public static void render(GuiGraphics g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
-        if (ANIMS.isEmpty() || mc.player == null || mc.options.hideGui || mc.gameMode == null || !mc.gameMode.canHurtPlayer()) {
+        if (ANIMS.isEmpty() || mc.player == null || !mc.player.isAlive() || mc.options.hideGui || mc.gameMode == null || !mc.gameMode.canHurtPlayer()) {
             return;
         }
         float partial = delta.getGameTimeDeltaPartialTick(false);

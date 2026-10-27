@@ -36,6 +36,8 @@ public class FxScenario {
     private final TreeMap<Integer, Runnable> steps = new TreeMap<>();
     private int tick = -1;
     private int inWorldFor;
+    /** Balance to give the respawned player, as BountyManager does from its saved transfers (null: none). */
+    private static volatile Integer respawnBalance;
 
     public FxScenario() {
         if (!"fx".equals(System.getProperty("bloodcontracts.debugScenario"))) {
@@ -85,9 +87,29 @@ public class FxScenario {
         step(380, () -> onServer(mc, p -> setBalance(p, -1)));
         shot(386, "14_half_heart_back");
         step(400, () -> onServer(mc, p -> p.getAttribute(Attributes.MAX_HEALTH).removeModifier(BountyManager.HEART_MODIFIER)));
-        step(410, () -> onServer(mc, p -> p.setInvulnerable(false)));
-        step(412, mc::stop);
+        // Killed under contract: the heart is lost while dead; the animation must play after the respawn, not before.
+        step(410, () -> onServer(mc, p -> {
+            p.setInvulnerable(false);
+            respawnBalance = -2;
+            setBalance(p, -2);
+            p.kill();
+        }));
+        shot(425, "15_dead_no_animation_yet");
+        step(430, () -> {
+            mc.player.respawn();
+            mc.setScreen(null);
+        });
+        shot(452, "16a_after_respawn_settling");
+        shot(462, "16_after_respawn_heart_draining");
+        shot(482, "17_after_respawn_heart_breaking");
+        step(500, () -> onServer(mc, p -> p.getAttribute(Attributes.MAX_HEALTH).removeModifier(BountyManager.HEART_MODIFIER)));
+        step(505, mc::stop);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> onTick(mc));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerRespawnEvent e) -> {
+            if (respawnBalance != null && e.getEntity() instanceof ServerPlayer p) {
+                setBalance(p, respawnBalance);
+            }
+        });
     }
 
     private static void setBalance(ServerPlayer p, int hp) {
