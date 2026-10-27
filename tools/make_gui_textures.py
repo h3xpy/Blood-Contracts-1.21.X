@@ -87,6 +87,58 @@ def blood_drop(size=16):
     return out
 
 
+def poster(w=128, h=176):
+    """Aged wanted poster: parchment, torn and burnt edges, darker corners, a nail at the top."""
+    paper = parchment(256)
+    ppx = paper.load()
+    edge = random.Random(42)
+    # Torn outline: per-column / per-row inset depth.
+    top = [edge.randint(0, 3) for _ in range(w)]
+    bottom = [edge.randint(0, 4) for _ in range(w)]
+    left = [edge.randint(0, 3) for _ in range(h)]
+    right = [edge.randint(0, 3) for _ in range(h)]
+    for arr in (top, bottom, left, right):
+        for i in range(1, len(arr) - 1):
+            arr[i] = round((arr[i - 1] + arr[i] * 2 + arr[i + 1]) / 4)
+    # A couple of bigger tears.
+    for arr, n in ((bottom, 2), (right, 1), (left, 1)):
+        for _ in range(n):
+            c = edge.randrange(8, len(arr) - 8)
+            for i in range(-4, 5):
+                arr[c + i] = max(arr[c + i], 7 - abs(i))
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    px = img.load()
+    for y in range(h):
+        for x in range(w):
+            d = min(y - top[x], h - 1 - y - bottom[x], x - left[y], w - 1 - x - right[y])
+            if d < 0:
+                continue
+            r, g, b, _ = ppx[(x * 2) % 256, (y * 2 + 40) % 256]
+            # yellowed, burnt rim
+            burn = max(0.0, 1 - d / 7.0)
+            cx, cy = (x - w / 2) / (w / 2), (y - h / 2) / (h / 2)
+            vignette = min(1.0, (cx * cx + cy * cy) * 0.35)
+            k = 1 - 0.55 * burn - 0.25 * vignette
+            r, g, b = r * k + 30 * burn, g * k, b * k * 0.9
+            if d == 0:
+                r, g, b = r * 0.55, g * 0.45, b * 0.4
+            px[x, y] = (clamp(r), clamp(g), clamp(b), 255)
+    # nail at the top centre
+    nx, ny = w // 2, 6
+    for y in range(ny - 3, ny + 4):
+        for x in range(nx - 3, nx + 4):
+            dist = math.hypot(x - nx, y - ny)
+            if dist <= 3.2:
+                light = max(0.0, 1 - math.hypot(x - nx + 1, y - ny + 1) / 3.5)
+                v = 70 + 120 * light
+                px[x, y] = (clamp(v), clamp(v * 0.95), clamp(v * 0.9), 255)
+            elif dist <= 4.2 and px[x, y][3] > 0:
+                r, g, b, a = px[x, y]
+                px[x, y] = (clamp(r * 0.6), clamp(g * 0.55), clamp(b * 0.5), a)
+    return img
+
+
 parchment().save(OUT + "/parchment.png")
+poster().save(OUT + "/poster.png")
 blood_drop().save(OUT + "/blood_drop.png")
 print("textures written to", OUT)

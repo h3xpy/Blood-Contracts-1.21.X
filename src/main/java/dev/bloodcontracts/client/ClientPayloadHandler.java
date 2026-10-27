@@ -13,6 +13,9 @@ public final class ClientPayloadHandler {
     /** Last list of players the server knows (online and offline), for the creation screen. */
     static List<KnownPlayersPayload.KnownPlayer> knownPlayers = List.of();
 
+    /** Recurring hunter-target pairs, for the creation screen. */
+    static List<dev.bloodcontracts.network.TargetView.RepeatView> repeatPairs = List.of();
+
     /** Server settings for the help tab (defaults until the server sends its own at login). */
     static BCPayloads.HelpConfigPayload helpConfig = BCPayloads.HelpConfigPayload.fromConfig();
 
@@ -36,6 +39,7 @@ public final class ClientPayloadHandler {
     public static void handleKnownPlayers(KnownPlayersPayload payload) {
         knownPlayers = List.copyOf(payload.players());
         ClientSkins.update(payload.players());
+        repeatPairs = List.copyOf(payload.repeatPairs());
         if (Minecraft.getInstance().screen instanceof BountyCreateScreen create) {
             create.refreshCandidates();
         }

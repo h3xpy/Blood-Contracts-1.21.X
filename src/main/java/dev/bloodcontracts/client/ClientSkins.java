@@ -44,6 +44,17 @@ final class ClientSkins {
         }
     }
 
+    /** A profile sent with a wanted poster: same as a known player, with its recorded skin. */
+    static void remember(GameProfile profile) {
+        Property textures = profile.getProperties().get("textures").stream().findFirst().orElse(null);
+        if (textures == null && KNOWN.containsKey(profile.getId())) {
+            return; // nothing new: keep the skin we already have
+        }
+        update(List.of(new KnownPlayer(profile.getId(), profile.getName(), false,
+                java.util.Optional.ofNullable(textures).map(Property::value),
+                java.util.Optional.ofNullable(textures).map(Property::signature))));
+    }
+
     static PlayerSkin get(UUID player) {
         Minecraft mc = Minecraft.getInstance();
         PlayerInfo info = mc.getConnection() != null ? mc.getConnection().getPlayerInfo(player) : null;

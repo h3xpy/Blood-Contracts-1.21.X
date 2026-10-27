@@ -152,6 +152,15 @@ neoForge {
             systemProperty 'bloodcontracts.debugScenario', 'alert'
         }
 
+        // Same, filling the bounty board with sample data and screenshotting every tab (run/screenshots/board_*.png).
+        boardDebug {
+            client()
+            sourceSet = sourceSets.clientdebug
+            loadedMods = [mods."${mod_id}", mods.bloodcontracts_debug]
+            programArguments.addAll '--username', 'Joueur1', '--quickPlaySingleplayer', 'New World'
+            systemProperty 'bloodcontracts.debugScenario', 'board'
+        }
+
         // Same GameTests plus the compat ones, with Create, CBC and RPL loaded.
         gameTestServerCompat {
             type = "gameTestServer"
