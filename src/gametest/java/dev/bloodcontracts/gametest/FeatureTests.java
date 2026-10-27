@@ -271,8 +271,9 @@ public class FeatureTests {
 
         // With alertRevealsSponsor off, the sponsor stays anonymous.
         BCConfig.ALERT_REVEALS_SPONSOR.set(false);
-        hold(sponsor, new ItemStack(Items.DIAMOND, 1));
-        placeFromHand(manager, sponsor, target);
+        ServerPlayer sponsor2 = TestPlayers.create(helper, "sponsor2", new Vec3(1.5, 1, 4.5));
+        hold(sponsor2, new ItemStack(Items.DIAMOND, 1));
+        placeFromHand(manager, sponsor2, target);
         BountyAlertPayload second = TestPlayers.sentPayloads(target, BountyAlertPayload.class).get(0);
         helper.assertTrue(second.sponsorName().isEmpty() && second.bounties() == 2, "anonymous alert wrong");
         helper.succeed();

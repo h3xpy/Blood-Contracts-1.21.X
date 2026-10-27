@@ -23,6 +23,10 @@ public final class BountyEvents {
         gameBus.addListener(BountyEvents::onLogout);
         gameBus.addListener(BountyEvents::onServerTick);
         gameBus.addListener(BountyEvents::onServerStarted);
+        gameBus.addListener(BountyEvents::onServerStopping);
+        gameBus.addListener(BountyEvents::onRespawn);
+        gameBus.addListener(BountyEvents::onClone);
+        gameBus.addListener(BountyEvents::onDimensionChange);
         gameBus.addListener(BountyEvents::onServerStopped);
         gameBus.addListener(BountyEvents::onRegisterCommands);
     }
@@ -57,6 +61,28 @@ public final class BountyEvents {
 
     private static void onServerStarted(net.neoforged.neoforge.event.server.ServerStartedEvent event) {
         BountyManager.get(event.getServer()).onServerStarted();
+    }
+
+    private static void onServerStopping(net.neoforged.neoforge.event.server.ServerStoppingEvent event) {
+        BountyManager.get(event.getServer()).onServerStopping();
+    }
+
+    private static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            BountyManager.get(player.server).onPlayerRespawnOrClone(player);
+        }
+    }
+
+    private static void onClone(PlayerEvent.Clone event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            BountyManager.get(player.server).onPlayerRespawnOrClone(player);
+        }
+    }
+
+    private static void onDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            BountyManager.get(player.server).onPlayerRespawnOrClone(player);
+        }
     }
 
     private static void onServerStopped(ServerStoppedEvent event) {

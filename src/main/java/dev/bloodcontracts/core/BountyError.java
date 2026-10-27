@@ -14,10 +14,13 @@ public enum BountyError {
     NOT_FOUND,
     NOT_ACTIVE,
     NOT_OWNER,
-    COMBAT_LOCKED,
     NO_MENU,
     NOTHING_TO_CLAIM,
-    NOT_ALIVE;
+    NOT_ALIVE,
+    PAIR_EXISTS,
+    INVALID_HUNTERS,
+    ALREADY_PUBLIC,
+    NOT_CANCELLING;
 
     public String translationKey() {
         return "bloodcontracts.error." + name().toLowerCase(java.util.Locale.ROOT);

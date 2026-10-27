@@ -58,7 +58,9 @@ public class LifecycleTests {
         // Stack size too: a full stack of 64 moves as a whole.
         UUID marker2 = UUID.randomUUID();
         hold(sponsor, marked(Items.EMERALD, 64, marker2));
-        Bounty b2 = placeFromHand(manager, sponsor, target).value();
+        // Another target: a sponsor has at most one bounty per target.
+        ServerPlayer target2 = TestPlayers.create(helper, "target2", new net.minecraft.world.phys.Vec3(5.5, 1, 4.5));
+        Bounty b2 = placeFromHand(manager, sponsor, target2).value();
         helper.assertTrue(b2 != null && b2.rewards().get(0).getCount() == 64, "count not preserved");
         assertConserved(helper, manager, marker2, 64);
         helper.succeed();
@@ -104,19 +106,42 @@ public class LifecycleTests {
         BCConfig.MAX_ACTIVE_BOUNTIES_PER_SPONSOR.set(1);
         ServerPlayer sponsor = TestPlayers.sponsor(helper);
         ServerPlayer target = TestPlayers.target(helper);
+        ServerPlayer otherTarget = TestPlayers.create(helper, "target2", new net.minecraft.world.phys.Vec3(5.5, 1, 4.5));
         UUID marker = UUID.randomUUID();
         hold(sponsor, marked(Items.DIAMOND, 1, marker));
         helper.assertTrue(placeFromHand(manager, sponsor, target).isOk(), "first creation should succeed");
         hold(sponsor, marked(Items.DIAMOND, 1, marker));
-        expectRefused(helper, placeFromHand(manager, sponsor, target), BountyError.LIMIT_REACHED);
+        expectRefused(helper, placeFromHand(manager, sponsor, otherTarget), BountyError.LIMIT_REACHED);
         helper.assertTrue(sponsor.getInventory().getItem(0).getCount() == 1, "inventory changed by a refused creation");
         assertConserved(helper, manager, marker, 2);
         helper.succeed();
     }
 
-    @GameTest(template = T, batch = "cancel_refund")
-    public static void cancelRefundsSponsorAndRecordsHistory(GameTestHelper helper) {
+    @GameTest(template = T, batch = "create_pair")
+    public static void oneBountyPerSponsorTargetPair(GameTestHelper helper) {
         BountyManager manager = TestSupport.reset(helper);
+        ServerPlayer sponsor = TestPlayers.sponsor(helper);
+        ServerPlayer other = TestPlayers.hunter(helper);
+        ServerPlayer target = TestPlayers.target(helper);
+        UUID marker = UUID.randomUUID();
+        hold(sponsor, marked(Items.DIAMOND, 1, marker));
+        Bounty first = placeFromHand(manager, sponsor, target).value();
+        hold(sponsor, marked(Items.DIAMOND, 1, marker));
+        expectRefused(helper, placeFromHand(manager, sponsor, target), BountyError.PAIR_EXISTS);
+        // Still refused while the first one is under cancel notice.
+        helper.assertTrue(manager.requestCancel(sponsor.getUUID(), first.id()).isOk(), "cancel request failed");
+        expectRefused(helper, placeFromHand(manager, sponsor, target), BountyError.PAIR_EXISTS);
+        // Another sponsor on the same target is fine.
+        hold(other, marked(Items.EMERALD, 1, marker));
+        helper.assertTrue(placeFromHand(manager, other, target).isOk(), "two sponsors on one target must be accepted");
+        assertConserved(helper, manager, marker, 3);
+        helper.succeed();
+    }
+
+    @GameTest(template = T, batch = "cancel_notice")
+    public static void cancelNoticeKeepsBountyActiveThenRefunds(GameTestHelper helper) {
+        BountyManager manager = TestSupport.reset(helper);
+        TestSupport.TestClock clock = TestSupport.clock(manager);
         ServerPlayer sponsor = TestPlayers.sponsor(helper);
         ServerPlayer target = TestPlayers.target(helper);
         UUID marker = UUID.randomUUID();
@@ -126,41 +151,116 @@ public class LifecycleTests {
         Bounty b = placeFromHand(manager, sponsor, target).value();
 
         BountyResult<Bounty> result = manager.cancel(sponsor.getUUID(), b.id(), false);
+        helper.assertTrue(result.isOk() && result.value().isCancelPending(), "cancel request failed: " + result.error());
+        clock.advanceMinutes(29);
+        manager.periodic();
+        helper.assertTrue(manager.findActive(b.id()).isPresent(), "bounty must stay active during the notice");
+        helper.assertTrue(manager.deliveriesFor(sponsor.getUUID()).isEmpty(), "refund before the end of the notice");
 
-        helper.assertTrue(result.isOk(), "cancel failed: " + result.error());
-        helper.assertTrue(manager.findActive(b.id()).isEmpty(), "still active");
+        clock.advanceMinutes(1);
+        manager.periodic();
         Bounty closed = manager.findAny(b.id()).orElseThrow();
-        helper.assertTrue(closed.state() == BountyState.CANCELLED, "not cancelled");
+        helper.assertTrue(closed.state() == BountyState.CANCELLED, "not cancelled at the end of the notice");
         helper.assertTrue(manager.history().stream().anyMatch(h -> h.id().equals(b.id())), "not in history");
-        helper.assertTrue(closed.rewards().isEmpty(), "history keeps an item");
-        // The refund waits in the board ("to claim"), it does not land in the inventory by itself.
         helper.assertTrue(TestSupport.countOwed(manager, sponsor, marker) == 5, "refund not waiting to be claimed");
-        helper.assertTrue(TestSupport.countInInventory(sponsor, marker) == 0, "refund was pushed into the inventory");
+        manager.periodic();
+        helper.assertTrue(TestSupport.countOwed(manager, sponsor, marker) == 5, "refund given twice");
         assertConserved(helper, manager, marker, 5);
         TestSupport.claimAll(helper, manager, sponsor);
-        helper.assertTrue(manager.data().deliveries().isEmpty(), "claimed delivery not deleted");
         helper.assertTrue(ItemStack.matches(expected, sponsor.getInventory().getItem(0)), "sponsor did not get the exact stack back");
         assertConserved(helper, manager, marker, 5);
         helper.succeed();
     }
 
     @GameTest(template = T, batch = "cancel_twice")
-    public static void doubleCancelIsRefused(GameTestHelper helper) {
+    public static void secondCancelRequestDoesNotShortenTheNotice(GameTestHelper helper) {
         BountyManager manager = TestSupport.reset(helper);
+        TestSupport.TestClock clock = TestSupport.clock(manager);
         ServerPlayer sponsor = TestPlayers.sponsor(helper);
         ServerPlayer target = TestPlayers.target(helper);
         UUID marker = UUID.randomUUID();
         hold(sponsor, marked(Items.DIAMOND, 3, marker));
         Bounty b = placeFromHand(manager, sponsor, target).value();
 
-        helper.assertTrue(manager.cancel(sponsor.getUUID(), b.id(), false).isOk(), "first cancel failed");
+        long end = manager.requestCancel(sponsor.getUUID(), b.id()).value().cancelAt();
+        clock.advanceMinutes(10);
+        helper.assertTrue(manager.requestCancel(sponsor.getUUID(), b.id()).value().cancelAt() == end, "second request moved the deadline");
+        clock.advanceMinutes(20);
+        manager.periodic();
         expectRefused(helper, manager.cancel(sponsor.getUUID(), b.id(), false), BountyError.NOT_ACTIVE);
         expectRefused(helper, manager.cancel(sponsor.getUUID(), b.id(), true), BountyError.NOT_ACTIVE);
         expectRefused(helper, manager.cancel(sponsor.getUUID(), UUID.randomUUID(), false), BountyError.NOT_FOUND);
-
         assertConserved(helper, manager, marker, 3);
         TestSupport.claimAll(helper, manager, sponsor);
         helper.assertTrue(TestSupport.countInInventory(sponsor, marker) == 3, "sponsor should hold exactly 3");
+        helper.succeed();
+    }
+
+    @GameTest(template = T, batch = "cancel_resume")
+    public static void resumeWithdrawsTheCancellation(GameTestHelper helper) {
+        BountyManager manager = TestSupport.reset(helper);
+        TestSupport.TestClock clock = TestSupport.clock(manager);
+        ServerPlayer sponsor = TestPlayers.sponsor(helper);
+        ServerPlayer stranger = TestPlayers.hunter(helper);
+        ServerPlayer target = TestPlayers.target(helper);
+        hold(sponsor, new ItemStack(Items.DIAMOND));
+        Bounty b = placeFromHand(manager, sponsor, target).value();
+        expectRefused(helper, manager.resume(sponsor.getUUID(), b.id()), BountyError.NOT_CANCELLING);
+        manager.requestCancel(sponsor.getUUID(), b.id());
+        clock.advanceMinutes(15);
+        expectRefused(helper, manager.resume(stranger.getUUID(), b.id()), BountyError.NOT_OWNER);
+        BountyResult<Bounty> resumed = manager.resume(sponsor.getUUID(), b.id());
+        helper.assertTrue(resumed.isOk() && !resumed.value().isCancelPending(), "resume failed: " + resumed.error());
+        clock.advanceMinutes(31);
+        manager.periodic();
+        helper.assertTrue(manager.findActive(b.id()).isPresent(), "resumed bounty was cancelled anyway");
+        helper.succeed();
+    }
+
+    @GameTest(template = T, batch = "cancel_kill_during_notice")
+    public static void killDuringNoticePaysNormally(GameTestHelper helper) {
+        BountyManager manager = TestSupport.reset(helper);
+        TestSupport.TestClock clock = TestSupport.clock(manager);
+        ServerPlayer sponsor = TestPlayers.sponsor(helper);
+        ServerPlayer target = TestPlayers.target(helper);
+        ServerPlayer hunter = TestPlayers.hunter(helper);
+        UUID marker = UUID.randomUUID();
+        hold(sponsor, marked(Items.DIAMOND, 2, marker));
+        Bounty b = placeFromHand(manager, sponsor, target).value();
+        manager.requestCancel(sponsor.getUUID(), b.id());
+        clock.advanceMinutes(20);
+
+        hit(target, target.damageSources().playerAttack(hunter), 1000f);
+
+        Bounty closed = manager.findAny(b.id()).orElseThrow();
+        helper.assertTrue(closed.state() == BountyState.CLAIMED && hunter.getUUID().equals(closed.claimedBy()), "not paid during the notice");
+        helper.assertTrue(TestSupport.countOwed(manager, hunter, marker) == 2, "hunter not paid");
+        helper.assertTrue(manager.deliveriesFor(sponsor.getUUID()).isEmpty(), "sponsor refunded although the bounty was collected");
+        helper.assertTrue(manager.heartBalanceHp(target.getUUID()) == -2 && manager.heartBalanceHp(sponsor.getUUID()) == 2, "heart not moved");
+        helper.assertTrue(manager.immuneUntil(target.getUUID()).isPresent(), "target not immune");
+        clock.advanceMinutes(20);
+        manager.periodic();
+        helper.assertTrue(manager.deliveriesFor(sponsor.getUUID()).isEmpty(), "notice end refunded a collected bounty");
+        assertConserved(helper, manager, marker, 2);
+        helper.succeed();
+    }
+
+    @GameTest(template = T, batch = "cancel_notice_restart")
+    public static void noticeEndedDuringDowntimeIsFinalizedAtStart(GameTestHelper helper) {
+        BountyManager manager = TestSupport.reset(helper);
+        TestSupport.TestClock clock = TestSupport.clock(manager);
+        ServerPlayer sponsor = TestPlayers.sponsor(helper);
+        ServerPlayer target = TestPlayers.target(helper);
+        UUID marker = UUID.randomUUID();
+        hold(sponsor, marked(Items.DIAMOND, 1, marker));
+        Bounty b = placeFromHand(manager, sponsor, target).value();
+        manager.requestCancel(sponsor.getUUID(), b.id());
+        // The server is down for 45 minutes: the restart finalizes the notice.
+        clock.advanceMinutes(45);
+        manager.onServerStarted();
+        helper.assertTrue(manager.findAny(b.id()).orElseThrow().state() == BountyState.CANCELLED, "not finalized at start");
+        helper.assertTrue(TestSupport.countOwed(manager, sponsor, marker) == 1, "refund missing");
+        assertConserved(helper, manager, marker, 1);
         helper.succeed();
     }
 
@@ -183,35 +283,6 @@ public class LifecycleTests {
         helper.assertTrue(manager.deliveriesFor(stranger.getUUID()).isEmpty(), "operator must not be owed anything");
         assertConserved(helper, manager, marker, 2);
         helper.succeed();
-    }
-
-    @GameTest(template = T, batch = "cancel_lock", timeoutTicks = 100)
-    public static void cancelLockedAfterEligibleDamage(GameTestHelper helper) {
-        BountyManager manager = TestSupport.reset(helper);
-        BCConfig.CANCEL_LOCK_SECONDS.set(1);
-        ServerPlayer sponsor = TestPlayers.sponsor(helper);
-        ServerPlayer target = TestPlayers.target(helper);
-        ServerPlayer hunter = TestPlayers.hunter(helper);
-        UUID marker = UUID.randomUUID();
-        hold(sponsor, marked(Items.DIAMOND, 1, marker));
-        Bounty b = placeFromHand(manager, sponsor, target).value();
-
-        // The sponsor's own hits do not lock (they are not eligible for their own bounty).
-        hit(target, helper.getLevel().damageSources().playerAttack(sponsor), 1f);
-        helper.assertTrue(!manager.isCombatLocked(b), "sponsor damage must not lock the cancel");
-
-        hit(target, helper.getLevel().damageSources().playerAttack(hunter), 1f);
-        expectRefused(helper, manager.cancel(sponsor.getUUID(), b.id(), false), BountyError.COMBAT_LOCKED);
-        helper.assertTrue(manager.findActive(b.id()).isPresent(), "locked cancel changed state");
-        assertConserved(helper, manager, marker, 1);
-
-        // Once the lock (1 s) is over, the cancel goes through.
-        helper.runAfterDelay(25, () -> {
-            helper.assertTrue(manager.cancel(sponsor.getUUID(), b.id(), false).isOk(), "cancel still locked after the delay");
-            assertConserved(helper, manager, marker, 1);
-            helper.assertTrue(TestSupport.countOwed(manager, sponsor, marker) == 1, "refund missing");
-            helper.succeed();
-        });
     }
 
     @GameTest(template = T, batch = "cancel_offline_sponsor")

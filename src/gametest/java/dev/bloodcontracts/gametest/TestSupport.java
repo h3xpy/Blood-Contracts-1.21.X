@@ -40,8 +40,11 @@ public final class TestSupport {
 
     private static void resetConfig() {
         for (ModConfigSpec.ConfigValue<?> value : List.of(BCConfig.ATTRIBUTION_WINDOW_TICKS, BCConfig.CANNON_OPERATOR_WINDOW_TICKS,
-                BCConfig.CANCEL_LOCK_SECONDS, BCConfig.MAX_ACTIVE_BOUNTIES_PER_SPONSOR, BCConfig.REWARD_BLACKLIST,
-                BCConfig.CREDIT_TAMED_PETS, BCConfig.SHOW_SPONSOR, BCConfig.HISTORY_SIZE)) {
+                BCConfig.CANCEL_LOCK_SECONDS, BCConfig.CANCEL_NOTICE_MINUTES, BCConfig.MAX_ACTIVE_BOUNTIES_PER_SPONSOR,
+                BCConfig.MAX_HUNTER_LIST_SIZE, BCConfig.REWARD_BLACKLIST, BCConfig.CREDIT_TAMED_PETS, BCConfig.SHOW_SPONSOR,
+                BCConfig.ALERT_REVEALS_SPONSOR, BCConfig.HISTORY_SIZE, BCConfig.REPEAT_PAIR_THRESHOLD,
+                BCConfig.MAX_HEARTS_LOST_PER_DEATH, BCConfig.MAX_HEARTS_LOST, BCConfig.MAX_HEARTS_GAINED, BCConfig.HEART_REGEN_MODE,
+                BCConfig.HEART_REGEN_ONLINE_STEP_MINUTES, BCConfig.HEART_REGEN_OFFLINE_STEP_MINUTES, BCConfig.TARGET_IMMUNITY_MINUTES)) {
             restore(value);
         }
         BCConfig.DEBUG_LOGGING.set(true);
@@ -51,6 +54,27 @@ public final class TestSupport {
         if (!value.get().equals(value.getDefault())) {
             value.set(value.getDefault());
         }
+    }
+
+    /** Controllable wall clock for notices, immunity and heart regeneration. */
+    public static final class TestClock implements dev.bloodcontracts.core.TimeSource {
+        private long now = 1_800_000_000_000L;
+
+        @Override
+        public long nowMillis() {
+            return now;
+        }
+
+        public void advanceMinutes(double minutes) {
+            now += (long) (minutes * 60_000L);
+        }
+    }
+
+    /** Installs a fresh {@link TestClock} on the manager (reset restores the system clock). */
+    public static TestClock clock(BountyManager manager) {
+        TestClock clock = new TestClock();
+        manager.setTimeSourceForTests(clock);
+        return clock;
     }
 
     /** A stack carrying a unique marker, so conservation counts only this test's items. */

@@ -154,8 +154,9 @@ public class RobustnessTests {
         TestPlayers.logout(target);
         helper.assertTrue(manager.findActive(b.id()).isPresent(), "target logout changed the bounty");
         // A bounty can still be placed on a known but offline target.
-        hold(sponsor, marked(Items.DIAMOND, 1, marker));
-        helper.assertTrue(manager.create(sponsor, target.getUUID(), sponsor.getInventory(), 0).isOk(), "offline known target refused");
+        ServerPlayer sponsor2 = TestPlayers.create(helper, "sponsor2", new Vec3(1.5, 1, 4.5));
+        hold(sponsor2, marked(Items.DIAMOND, 1, marker));
+        helper.assertTrue(manager.create(sponsor2, target.getUUID(), sponsor2.getInventory(), 0).isOk(), "offline known target refused");
         assertConserved(helper, manager, marker, 2);
         helper.succeed();
     }
@@ -217,8 +218,9 @@ public class RobustnessTests {
         UUID marker = UUID.randomUUID();
         hold(sponsor, marked(Items.DIAMOND, 3, marker));
         Bounty claimed = placeFromHand(manager, sponsor, target).value();
-        hold(sponsor, marked(Items.NETHERITE_SWORD, 1, marker));
-        Bounty stillActive = placeFromHand(manager, sponsor, target).value();
+        ServerPlayer sponsor2 = TestPlayers.create(helper, "sponsor2", new Vec3(1.5, 1, 4.5));
+        hold(sponsor2, marked(Items.NETHERITE_SWORD, 1, marker));
+        Bounty stillActive = placeFromHand(manager, sponsor2, target).value();
         // Make the hunter offline so the claimed reward stays a pending delivery.
         UUID hunterId = hunter.getUUID();
         TestPlayers.logout(hunter);

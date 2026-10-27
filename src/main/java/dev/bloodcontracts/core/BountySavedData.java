@@ -1,5 +1,6 @@
 package dev.bloodcontracts.core;
 
+import com.mojang.authlib.properties.Property;
 import dev.bloodcontracts.BloodContracts;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -11,10 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import com.mojang.authlib.properties.Property;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -22,8 +23,10 @@ import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Bounties (active and history) and pending deliveries, saved together on the Overworld so a crash can never
- * persist "bounty claimed" without "delivery owed".
+ * Everything Blood Contracts persists, saved together on the Overworld so a crash can never persist half of a change
+ * (e.g. "bounty claimed" without "delivery owed", or a heart transfer without the immunity that came with it):
+ * bounties (active and history), pending deliveries, heart transfers, regeneration gauges, immunities, pair counters,
+ * known players and their skins.
  * <p>
  * Mutators are package-private: only {@link BountyManager} changes this data.
  * <p>
@@ -33,7 +36,18 @@ import org.jetbrains.annotations.Nullable;
 public class BountySavedData extends SavedData {
     public static final String NAME = BloodContracts.MODID + "_bounties";
     public static final Factory<BountySavedData> FACTORY = new Factory<>(BountySavedData::new, BountySavedData::load);
-    private static final int FORMAT_VERSION = 1;
+
+    /**
+     * 1: v1 (1.0.x, written as "FormatVersion" = 1, or nothing in 0.1): bounties are implicitly public, no hearts.
+     * 2: v2: bounty type, hunters and cancel notice; heart transfers, regeneration gauges, immunities, pair counters.
+     */
+    public static final int DATA_VERSION = 2;
+
+    /** Regeneration gauge of a target that has health out on transfers (see {@code BountyManager}). */
+    public record RegenGauge(double progress, long lastUpdate) {}
+
+    /** How many bounties a hunter collected on a target; survives the history purge. */
+    public record PairKey(UUID hunter, UUID target) {}
 
     private final Map<UUID, Bounty> active = new LinkedHashMap<>();
     /** Oldest first. */
@@ -45,6 +59,15 @@ public class BountySavedData extends SavedData {
     private final Map<UUID, String> knownPlayers = new LinkedHashMap<>();
     /** Last signed skin ("textures" profile property) of each known player, so offline players keep their face. */
     private final Map<UUID, Property> skins = new LinkedHashMap<>();
+    /** Source of truth for hearts, oldest first. Balances are computed from it, never stored. */
+    private final List<HeartTransfer> transfers = new ArrayList<>();
+    private final Map<UUID, RegenGauge> regen = new LinkedHashMap<>();
+    /** Target → end of immunity (wall-clock millis). */
+    private final Map<UUID, Long> immuneUntil = new LinkedHashMap<>();
+    private final Map<PairKey, Integer> pairCounts = new LinkedHashMap<>();
+    private int loadedDataVersion = DATA_VERSION;
+
+    // ---------------------------------------------------------------- reads
 
     public Collection<Bounty> activeBounties() {
         return Collections.unmodifiableCollection(active.values());
@@ -75,6 +98,55 @@ public class BountySavedData extends SavedData {
         return Optional.ofNullable(skins.get(player));
     }
 
+    public List<HeartTransfer> transfers() {
+        return Collections.unmodifiableList(transfers);
+    }
+
+    /** Net balance in HP: received minus lost. */
+    public int balance(UUID player) {
+        int hp = 0;
+        for (HeartTransfer t : transfers) {
+            if (t.to().equals(player)) {
+                hp += t.remainingHp();
+            }
+            if (t.from().equals(player)) {
+                hp -= t.remainingHp();
+            }
+        }
+        return hp;
+    }
+
+    public Optional<RegenGauge> regen(UUID target) {
+        return Optional.ofNullable(regen.get(target));
+    }
+
+    public Map<UUID, RegenGauge> regenGauges() {
+        return Collections.unmodifiableMap(regen);
+    }
+
+    public Optional<Long> immuneUntil(UUID target) {
+        return Optional.ofNullable(immuneUntil.get(target));
+    }
+
+    public int pairCount(UUID hunter, UUID target) {
+        return pairCounts.getOrDefault(new PairKey(hunter, target), 0);
+    }
+
+    public Map<PairKey, Integer> pairCounts() {
+        return Collections.unmodifiableMap(pairCounts);
+    }
+
+    /** The data version this data was loaded from (1 for a v1 save, before migration). */
+    public int loadedDataVersion() {
+        return loadedDataVersion;
+    }
+
+    public int unreadableEntries() {
+        return unreadableBounties.size() + unreadableDeliveries.size();
+    }
+
+    // ---------------------------------------------------------------- mutations (BountyManager only)
+
     /** @return true if this changed the data */
     boolean rememberSkin(UUID player, Property textures) {
         return !textures.equals(skins.put(player, textures));
@@ -83,10 +155,6 @@ public class BountySavedData extends SavedData {
     /** @return true if this changed the data */
     boolean rememberPlayer(UUID player, String name) {
         return !name.equals(knownPlayers.put(player, name));
-    }
-
-    public int unreadableEntries() {
-        return unreadableBounties.size() + unreadableDeliveries.size();
     }
 
     void putActive(Bounty bounty) {
@@ -115,6 +183,43 @@ public class BountySavedData extends SavedData {
         return deliveries.remove(delivery);
     }
 
+    void addTransfer(HeartTransfer transfer) {
+        transfers.add(transfer);
+    }
+
+    /** Replaces {@code old} by {@code updated} at the same position, or removes it if {@code updated} is null. */
+    void replaceTransfer(HeartTransfer old, @Nullable HeartTransfer updated) {
+        int i = transfers.indexOf(old);
+        if (i < 0) {
+            return;
+        }
+        if (updated == null) {
+            transfers.remove(i);
+        } else {
+            transfers.set(i, updated);
+        }
+    }
+
+    void setRegen(UUID target, @Nullable RegenGauge gauge) {
+        if (gauge == null) {
+            regen.remove(target);
+        } else {
+            regen.put(target, gauge);
+        }
+    }
+
+    void setImmuneUntil(UUID target, long until) {
+        immuneUntil.put(target, until);
+    }
+
+    void purgeImmunities(long now) {
+        immuneUntil.values().removeIf(until -> until <= now);
+    }
+
+    void addPairCount(UUID hunter, UUID target, int n) {
+        pairCounts.merge(new PairKey(hunter, target), n, Integer::sum);
+    }
+
     void clearAll() {
         active.clear();
         history.clear();
@@ -123,13 +228,17 @@ public class BountySavedData extends SavedData {
         unreadableDeliveries.clear();
         knownPlayers.clear();
         skins.clear();
+        transfers.clear();
+        regen.clear();
+        immuneUntil.clear();
+        pairCounts.clear();
     }
 
     // ---------------------------------------------------------------- serialization
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.putInt("FormatVersion", FORMAT_VERSION);
+        tag.putInt("DataVersion", DATA_VERSION);
         ListTag activeList = new ListTag();
         active.values().forEach(b -> activeList.add(writeBounty(b, registries)));
         unreadableBounties.forEach(raw -> activeList.add(raw.copy()));
@@ -164,11 +273,53 @@ public class BountySavedData extends SavedData {
             skinList.add(entry);
         });
         tag.put("Skins", skinList);
+
+        ListTag transferList = new ListTag();
+        for (HeartTransfer t : transfers) {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("Id", t.id());
+            entry.putUUID("From", t.from());
+            entry.putUUID("To", t.to());
+            entry.putInt("RemainingHp", t.remainingHp());
+            entry.putLong("CreatedAt", t.createdAt());
+            transferList.add(entry);
+        }
+        tag.put("HeartTransfers", transferList);
+
+        ListTag regenList = new ListTag();
+        regen.forEach((id, g) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("Target", id);
+            entry.putDouble("Progress", g.progress());
+            entry.putLong("LastUpdate", g.lastUpdate());
+            regenList.add(entry);
+        });
+        tag.put("Regen", regenList);
+
+        ListTag immunityList = new ListTag();
+        immuneUntil.forEach((id, until) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("Target", id);
+            entry.putLong("Until", until);
+            immunityList.add(entry);
+        });
+        tag.put("Immunities", immunityList);
+
+        ListTag pairList = new ListTag();
+        pairCounts.forEach((k, n) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("Hunter", k.hunter());
+            entry.putUUID("Target", k.target());
+            entry.putInt("Count", n);
+            pairList.add(entry);
+        });
+        tag.put("PairCounts", pairList);
         return tag;
     }
 
     public static BountySavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         BountySavedData data = new BountySavedData();
+        data.loadedDataVersion = tag.contains("DataVersion") ? tag.getInt("DataVersion") : 1;
         for (Tag t : tag.getList("Active", Tag.TAG_COMPOUND)) {
             CompoundTag raw = (CompoundTag) t;
             Bounty b = readBounty(raw, registries);
@@ -208,6 +359,39 @@ public class BountySavedData extends SavedData {
                         entry.contains("Signature") ? entry.getString("Signature") : null));
             }
         }
+        for (Tag t : tag.getList("HeartTransfers", Tag.TAG_COMPOUND)) {
+            CompoundTag e = (CompoundTag) t;
+            try {
+                data.transfers.add(new HeartTransfer(e.getUUID("Id"), e.getUUID("From"), e.getUUID("To"),
+                        e.getInt("RemainingHp"), e.getLong("CreatedAt")));
+            } catch (RuntimeException ex) {
+                BloodContracts.LOGGER.error("Blood Contracts: dropping malformed heart transfer {}", e, ex);
+            }
+        }
+        for (Tag t : tag.getList("Regen", Tag.TAG_COMPOUND)) {
+            CompoundTag e = (CompoundTag) t;
+            if (e.hasUUID("Target")) {
+                data.regen.put(e.getUUID("Target"), new RegenGauge(e.getDouble("Progress"), e.getLong("LastUpdate")));
+            }
+        }
+        for (Tag t : tag.getList("Immunities", Tag.TAG_COMPOUND)) {
+            CompoundTag e = (CompoundTag) t;
+            if (e.hasUUID("Target")) {
+                data.immuneUntil.put(e.getUUID("Target"), e.getLong("Until"));
+            }
+        }
+        for (Tag t : tag.getList("PairCounts", Tag.TAG_COMPOUND)) {
+            CompoundTag e = (CompoundTag) t;
+            if (e.hasUUID("Hunter") && e.hasUUID("Target")) {
+                data.pairCounts.put(new PairKey(e.getUUID("Hunter"), e.getUUID("Target")), e.getInt("Count"));
+            }
+        }
+        if (data.loadedDataVersion < DATA_VERSION) {
+            // v1 -> v2: bounties without a type are read as PUBLIC (see readBounty); nothing else to convert.
+            BloodContracts.LOGGER.info("Blood Contracts: migrated bounty data v{} -> v{} ({} active bounties kept as PUBLIC, {} pending deliveries)",
+                    data.loadedDataVersion, DATA_VERSION, data.active.size(), data.deliveries.size());
+            data.setDirty();
+        }
         return data;
     }
 
@@ -235,11 +419,20 @@ public class BountySavedData extends SavedData {
             summary.add(entry);
         }
         tag.put("Summary", summary);
+        tag.putString("Type", b.type().name());
+        if (!b.hunters().isEmpty()) {
+            ListTag hunters = new ListTag();
+            b.hunters().forEach(h -> hunters.add(NbtUtils.createUUID(h)));
+            tag.put("Hunters", hunters);
+        }
+        if (b.cancelAt() != null) {
+            tag.putLong("CancelAt", b.cancelAt());
+        }
         return tag;
     }
 
     /**
-     * Reads a bounty; also accepts the 0.1 single-reward format ({@code Reward}, {@code RewardItem}, {@code RewardCount}).
+     * Reads a bounty in any format: v2, v1 (no "Type": public), and 0.1 (single "Reward", "RewardItem"/"RewardCount").
      * Returns null if any reward stack cannot be decoded: the caller keeps the raw tag.
      */
     static @Nullable Bounty readBounty(CompoundTag tag, HolderLookup.Provider registries) {
@@ -277,6 +470,11 @@ public class BountySavedData extends SavedData {
             } else {
                 rewards.forEach(r -> summary.add(Bounty.RewardSummary.of(r)));
             }
+            BountyType type = tag.contains("Type") ? BountyType.valueOf(tag.getString("Type")) : BountyType.PUBLIC;
+            List<UUID> hunters = new ArrayList<>();
+            for (Tag t : tag.getList("Hunters", Tag.TAG_INT_ARRAY)) {
+                hunters.add(NbtUtils.loadUUID(t));
+            }
             return new Bounty(
                     tag.getUUID("Id"),
                     tag.getUUID("Sponsor"),
@@ -286,7 +484,10 @@ public class BountySavedData extends SavedData {
                     state,
                     tag.hasUUID("ClaimedBy") ? tag.getUUID("ClaimedBy") : null,
                     tag.getLong("ClosedAt"),
-                    summary);
+                    summary,
+                    type,
+                    type == BountyType.PUBLIC ? List.of() : hunters,
+                    state == BountyState.ACTIVE && tag.contains("CancelAt") ? tag.getLong("CancelAt") : null);
         } catch (RuntimeException e) {
             BloodContracts.LOGGER.error("Blood Contracts: malformed bounty entry {}", tag, e);
             return null;

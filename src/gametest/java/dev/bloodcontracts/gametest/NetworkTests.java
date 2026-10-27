@@ -114,7 +114,11 @@ public class NetworkTests {
         helper.assertTrue(manager.findActive(b.id()).isPresent(), "invalid cancel changed state");
         assertConserved(helper, manager, marker, 2);
 
+        TestSupport.TestClock clock = TestSupport.clock(manager);
         helper.assertTrue(ServerPayloadHandler.handleCancel(sponsor, new CancelBountyRequest(b.id())).isOk(), "valid cancel refused");
+        helper.assertTrue(manager.findActive(b.id()).isPresent(), "a cancel request must start a notice, not cancel");
+        clock.advanceMinutes(30);
+        manager.periodic();
         expectRefused(helper, ServerPayloadHandler.handleCancel(sponsor, new CancelBountyRequest(b.id())), BountyError.NOT_ACTIVE);
         helper.assertTrue(ServerPayloadHandler.handleClaim(sponsor, new BCPayloads.ClaimRewardRequest(java.util.Optional.empty())).isOk(), "claim refused");
         helper.assertTrue(countInInventory(sponsor, marker) == 2, "refund wrong");
