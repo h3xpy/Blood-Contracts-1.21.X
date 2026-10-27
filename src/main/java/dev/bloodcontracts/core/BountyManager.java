@@ -192,6 +192,16 @@ public final class BountyManager {
         return data().immuneUntil(target).filter(until -> until > now);
     }
 
+    /** Operator maintenance: ends {@code target}'s immunity now. False if they were not immune. */
+    public boolean clearImmunity(UUID target) {
+        boolean wasImmune = immuneUntil(target).isPresent();
+        if (data().clearImmunity(target)) {
+            data().setDirty();
+        }
+        debug("immunity of {} cleared by an operator (was immune: {})", target, wasImmune);
+        return wasImmune;
+    }
+
     public int heartBalanceHp(UUID player) {
         return data().balance(player);
     }

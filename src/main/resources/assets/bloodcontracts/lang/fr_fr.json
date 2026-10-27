@@ -159,5 +159,7 @@
   "bloodcontracts.help.claim.title": "Récupérer ses objets",
   "bloodcontracts.help.claim.body": "Les récompenses gagnées et les objets remboursés vous attendent dans l'onglet « À réclamer ».",
   "bloodcontracts.toast.target_down.title": "Contrat rempli",
-  "bloodcontracts.toast.target_down.body": "%s a abattu %s"
+  "bloodcontracts.toast.target_down.body": "%s a abattu %s",
+  "bloodcontracts.command.immunity_cleared": "Immunité de %s levée : ses primes peuvent de nouveau être encaissées.",
+  "bloodcontracts.command.not_immune": "%s n'est pas immunisé."
 }

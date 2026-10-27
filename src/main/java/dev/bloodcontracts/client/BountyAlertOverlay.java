@@ -35,7 +35,7 @@ public final class BountyAlertOverlay {
     private static final int LOGIN_GRACE = 40;
 
     private static @Nullable BountyAlertPayload current;
-    /** The alert waits (age stays 0, no sound) until the player is in the world and no loading screen is shown. */
+    /** The alert waits (age stays 0, no sound) until the player is in the world with no loading screen nor menu open. */
     private static boolean started;
     private static int waitTicks;
     private static int age;
@@ -75,7 +75,9 @@ public final class BountyAlertOverlay {
         }
         Minecraft mc = Minecraft.getInstance();
         if (!started) {
-            if (worldHidden(mc)) {
+            // Not before the player can see it: no loading screen and no menu (settings, chat, inventory...).
+            // The picture and the sound start together, as soon as they are back in the game.
+            if (worldHidden(mc) || mc.screen != null) {
                 return;
             }
             if (waitTicks-- > 0) {

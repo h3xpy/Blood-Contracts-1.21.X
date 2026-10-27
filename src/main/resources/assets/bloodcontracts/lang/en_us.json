@@ -159,5 +159,7 @@
   "bloodcontracts.help.claim.title": "Getting your items",
   "bloodcontracts.help.claim.body": "Rewards you won and refunded items wait for you in the \"To claim\" tab.",
   "bloodcontracts.toast.target_down.title": "Contract fulfilled",
-  "bloodcontracts.toast.target_down.body": "%s took down %s"
+  "bloodcontracts.toast.target_down.body": "%s took down %s",
+  "bloodcontracts.command.immunity_cleared": "%s is no longer immune: bounties on them can be collected again.",
+  "bloodcontracts.command.not_immune": "%s is not immune."
 }

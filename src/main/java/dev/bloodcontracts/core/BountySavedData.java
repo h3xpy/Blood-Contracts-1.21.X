@@ -212,6 +212,11 @@ public class BountySavedData extends SavedData {
         immuneUntil.put(target, until);
     }
 
+    /** Removes {@code target}'s immunity; true if there was one. */
+    boolean clearImmunity(UUID target) {
+        return immuneUntil.remove(target) != null;
+    }
+
     void purgeImmunities(long now) {
         immuneUntil.values().removeIf(until -> until <= now);
     }

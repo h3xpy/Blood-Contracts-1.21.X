@@ -45,8 +45,9 @@
   à titre d'information seulement.
 
 **Alertes et notifications**
-- L'alerte « ta tête est mise à prix » est un bandeau au centre de l'écran. Si un menu est ouvert, elle se met en pause
-  (seul un liseré rouge pulse sur les bords) et reprend en revenant au jeu.
+- L'alerte « ta tête est mise à prix » est un bandeau au centre de l'écran. Reçue pendant qu'un menu est ouvert
+  (réglages, chat, inventaire…), elle attend le retour au jeu : l'image et le son arrivent ensemble. Si un menu s'ouvre
+  pendant l'alerte, elle se met en pause (seul un liseré rouge pulse sur les bords) et reprend à sa fermeture.
 - Notifications aux couleurs du mod : « objets à réclamer », et « contrat rempli » pour le commanditaire quand sa cible
   tombe (avec le chasseur et le cœur gagné).
 - Un cœur gagné jaillit au-dessus de la barre d'action et file vers sa place ; un cœur perdu se brise en deux.
@@ -57,7 +58,7 @@
 - `/bounty cancel <id>` lance le préavis ; `/bounty resume <id>` le retire.
 - Inchangées : `list`, `info`, `history`, `claim`, `gui`.
 - Opérateurs : `/bounty admin cancel <id>` (immédiat), `/bounty admin list` (avec les chasseurs), `/bounty admin hearts <joueur>`
-  (consultation des cœurs, transferts, jauge et immunité).
+  (consultation des cœurs, transferts, jauge et immunité), `/bounty admin clearimmunity <joueur>` (lève l'immunité).
 
 ## Configuration (`serverconfig/bloodcontracts-server.toml`)
 

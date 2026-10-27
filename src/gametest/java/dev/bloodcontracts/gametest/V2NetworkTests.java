@@ -349,4 +349,41 @@ public class V2NetworkTests {
         helper.assertTrue(manager.heartBalanceHp(target.getUUID()) == -2, "admin hearts changed something");
         helper.succeed();
     }
+
+    @GameTest(template = T, batch = "v2cmd_clear_immunity")
+    public static void adminCanClearImmunity(GameTestHelper helper) {
+        BountyManager manager = TestSupport.reset(helper);
+        TestSupport.clock(manager);
+        ServerPlayer s1 = TestPlayers.sponsor(helper);
+        ServerPlayer s2 = TestPlayers.create(helper, "sponsor2", new Vec3(1.5, 1, 4.5));
+        ServerPlayer target = TestPlayers.target(helper);
+        ServerPlayer hunter = TestPlayers.hunter(helper);
+        var server = helper.getLevel().getServer();
+        var console = server.createCommandSourceStack();
+        var dispatcher = server.getCommands().getDispatcher();
+        hold(s1, new ItemStack(Items.DIAMOND));
+        placeFromHand(manager, s1, target);
+        manager.onDeath(target, target.damageSources().playerAttack(hunter));
+        hold(s2, new ItemStack(Items.EMERALD));
+        Bounty second = placeFromHand(manager, s2, target).value();
+        helper.assertTrue(manager.immuneUntil(target.getUUID()).isPresent(), "setup: target not immune");
+        String name = target.getGameProfile().getName();
+        try {
+            // players cannot use it
+            helper.assertTrue(run(hunter, "bounty admin clearimmunity " + name) < 0, "players can clear immunity");
+            helper.assertTrue(dispatcher.execute("bounty admin clearimmunity " + name, console) == 1, "clear refused");
+            helper.assertTrue(dispatcher.execute("bounty admin clearimmunity " + name, console) == 0, "clearing twice should report not immune");
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+            throw new IllegalStateException(e);
+        }
+        helper.assertTrue(manager.immuneUntil(target.getUUID()).isEmpty(), "still immune");
+        // The cleared immunity is saved too.
+        var registries = helper.getLevel().registryAccess();
+        var reloaded = dev.bloodcontracts.core.BountySavedData.load(manager.data().save(new net.minecraft.nbt.CompoundTag(), registries), registries);
+        helper.assertTrue(reloaded.immuneUntil(target.getUUID()).isEmpty(), "cleared immunity came back after reload");
+        // Bounties on the target can be collected again at once.
+        manager.onDeath(target, target.damageSources().playerAttack(hunter));
+        helper.assertTrue(manager.findAny(second.id()).orElseThrow().state() == BountyState.CLAIMED, "not collectable after the clear");
+        helper.succeed();
+    }
 }

@@ -33,10 +33,19 @@ public final class HeartAnimations {
     /** Ticks to ignore changes after the local player entity is (re)created: respawn, dimension change, login. */
     private static final int SETTLE_TICKS = 20;
 
-    private record Anim(boolean gain, boolean half, int slot, int duration, int[] age) {}
+    /**
+     * @param fill how much of the slot is red (0 empty container, 1 half, 2 full): before the loss, or after the gain
+     * @param hold extra ticks a lost heart stays on its slot before breaking (several losses break one after the other,
+     *             but all cover their slot from the start)
+     */
+    private record Anim(boolean gain, boolean half, int slot, int fill, int hold, int duration, int[] age) {}
+
+    /** The vanilla bar keeps showing a lost heart slot (as its "display health") for about a second. */
+    private static final int VANILLA_LAG = 20;
 
     private static final List<Anim> ANIMS = new ArrayList<>();
     private static int lastHp;
+    private static float lastHealth;
     private static int lastEntityId = -1;
     private static int settle;
 
@@ -69,6 +78,7 @@ public final class HeartAnimations {
             changed(mc, player, lastHp, hp);
             lastHp = hp;
         }
+        lastHealth = player.getHealth();
         for (Iterator<Anim> it = ANIMS.iterator(); it.hasNext(); ) {
             Anim a = it.next();
             if (++a.age()[0] >= a.duration()) {
@@ -89,8 +99,12 @@ public final class HeartAnimations {
         for (int i = 0; i <= last - first; i++) {
             int slot = diff > 0 ? first + i : last - i;
             boolean whole = low <= 2 * slot && high >= 2 * slot + 2;
-            int duration = diff > 0 ? (whole ? 34 : 18) : (whole ? 30 : 16);
-            ANIMS.add(new Anim(diff > 0, !whole, slot, duration, new int[] {-delay}));
+            // red part of the slot as the bar shows it: after a gain, the current health; before a loss, last tick's
+            float health = diff > 0 ? player.getHealth() : lastHealth;
+            int fill = Mth.clamp(Mth.ceil(health) - 2 * slot, 0, 2);
+            int hold = diff > 0 ? 0 : delay;
+            int duration = diff > 0 ? (whole ? 34 : 18) : (whole ? VANILLA_LAG + hold + 22 : 16 + hold);
+            ANIMS.add(new Anim(diff > 0, !whole, slot, fill, hold, duration, new int[] {diff > 0 ? -delay : 0}));
             delay += whole ? 12 : 6;
         }
         var sounds = mc.getSoundManager();
@@ -148,106 +162,132 @@ public final class HeartAnimations {
         g.pose().popPose();
     }
 
-    private static void glow(GuiGraphics g, float x, float y, float radius, float alpha, int rgb) {
-        int a = Mth.clamp((int) (alpha * 255), 0, 255);
-        for (int r = (int) radius; r > 0; r -= 2) {
-            int ra = (int) (a * (1 - r / radius) * 0.5f);
-            g.fill((int) (x - r), (int) (y - r / 2f), (int) (x + r), (int) (y + r / 2f), (ra << 24) | rgb);
-            g.fill((int) (x - r / 2f), (int) (y - r), (int) (x + r / 2f), (int) (y + r), (ra << 24) | rgb);
+    /** Small sparkles flying out of (x, y); {@code k} goes 0 to 1. */
+    private static void sparkles(GuiGraphics g, float x, float y, float k, int count, float reach) {
+        int alpha = Mth.clamp((int) ((1 - k) * 255), 0, 255);
+        for (int i = 0; i < count; i++) {
+            double angle = i * 2 * Math.PI / count + 0.4;
+            float d = 3 + reach * k;
+            int px = Math.round(x + (float) Math.cos(angle) * d), py = Math.round(y + (float) Math.sin(angle) * d);
+            g.fill(px, py, px + 1, py + 1, (alpha << 24) | (i % 2 == 0 ? 0xFFF4C0 : 0xFF7070));
         }
     }
 
+    /**
+     * Gained heart. Whole heart: it appears above the hotbar, flies to its slot, lands exactly on it with a small bounce,
+     * then its red fades so the slot is left as the vanilla bar shows it (a new, still empty heart container).
+     * Half heart: a quick pop on the slot.
+     */
     private static void gain(GuiGraphics g, Anim a, float t, float slotX, float slotY, float cx, float cy) {
         ResourceLocation sprite = a.half() ? HALF : FULL;
-        if (a.duration() < 30) {
-            // half heart: a quick pop in place
+        if (a.half()) {
             float k = t / a.duration();
-            float scale = k < 0.4f ? Mth.lerp(k / 0.4f, 0.2f, 2.0f) : Mth.lerp((k - 0.4f) / 0.6f, 2.0f, 1.0f);
-            glow(g, slotX, slotY, 10 * (1 - k), 1 - k, 0xFFF0C0);
-            heart(g, sprite, slotX, slotY, scale, 1);
+            float scale = k < 0.35f ? Mth.lerp(k / 0.35f, 0.4f, 1.8f) : Mth.lerp((k - 0.35f) / 0.65f, 1.8f, 1.0f);
+            heart(g, sprite, slotX, slotY, scale, k < 0.7f ? 1 : (1 - k) / 0.3f);
+            sparkles(g, slotX, slotY, k, 6, 8);
             return;
         }
         if (t < 12) {
-            // appears above the hotbar and swells, with a growing glow and rotating rays
+            // appears and swells above the hotbar, with turning rays
             float k = t / 12f;
-            float scale = Mth.lerp(1 - (1 - k) * (1 - k), 0.2f, 3.2f);
-            glow(g, cx, cy, 26 * k, k, 0xFFE8A0);
-            rays(g, cx, cy, 18 + 10 * k, t * 6, k);
+            float scale = Mth.lerp(1 - (1 - k) * (1 - k), 0.3f, 3.0f);
+            rays(g, cx, cy, 10 + 14 * k, t * 6, k);
             heart(g, CONTAINER, cx, cy, scale, 1);
             heart(g, sprite, cx, cy, scale, 1);
         } else if (t < 24) {
-            // flies into its slot along a little arc, shrinking
+            // flies into its slot along a little arc, shrinking to the slot's size
             float k = (t - 12) / 12f;
             float e = k * k * (3 - 2 * k);
             float x = Mth.lerp(e, cx, slotX), y = Mth.lerp(e, cy, slotY) - 14 * (float) Math.sin(Math.PI * e);
-            glow(g, x, y, 18 * (1 - e) + 6, 1 - 0.5f * e, 0xFFE8A0);
-            heart(g, CONTAINER, x, y, Mth.lerp(e, 3.2f, 1.6f), 1);
-            heart(g, sprite, x, y, Mth.lerp(e, 3.2f, 1.6f), 1);
+            float scale = Mth.lerp(e, 3.0f, 1.0f);
+            heart(g, CONTAINER, x, y, scale, 1);
+            heart(g, sprite, x, y, scale, 1);
         } else {
-            // lands: pop, white flash and sparkles
+            // lands on the slot: bounce, sparkles, then the red drains away and only the container stays
+            // lands on the slot: bounce and sparkles, then it settles to what the bar really shows (full, half, or a new
+            // empty container when the player's health has not caught up yet)
             float k = (t - 24) / (a.duration() - 24f);
-            heart(g, sprite, slotX, slotY, Mth.lerp(k, 1.6f, 1.0f), 1);
-            int flash = Mth.clamp((int) ((1 - k) * 220), 0, 255);
-            heart(g, CONTAINER, slotX, slotY, 1 + 1.5f * k, (1 - k));
-            g.fill((int) slotX - 4, (int) slotY - 4, (int) slotX + 5, (int) slotY + 5, (flash / 2 << 24) | 0xFFFFFF);
-            for (int i = 0; i < 8; i++) {
-                double angle = i * Math.PI / 4 + 0.3;
-                float d = 4 + 14 * k;
-                int px = (int) (slotX + Math.cos(angle) * d), py = (int) (slotY + Math.sin(angle) * d);
-                g.fill(px, py, px + 2, py + 2, (flash << 24) | (i % 2 == 0 ? 0xFFF4C0 : 0xFF6060));
+            float bounce = 1 + 0.35f * (float) Math.sin(Math.PI * Math.min(1, k * 2));
+            float drain = k < 0.5f ? 1 : (1 - k) * 2;
+            heart(g, CONTAINER, slotX, slotY, bounce, 1);
+            if (a.fill() >= 2) {
+                heart(g, FULL, slotX, slotY, bounce, 1);
+            } else {
+                if (a.fill() == 1) {
+                    heart(g, HALF, slotX, slotY, bounce, 1);
+                }
+                heart(g, FULL, slotX, slotY, bounce, drain);
             }
+            sparkles(g, slotX, slotY, k, 8, 12);
         }
     }
 
     private static void rays(GuiGraphics g, float x, float y, float length, float degrees, float alpha) {
-        int a = Mth.clamp((int) (alpha * 90), 0, 255);
-        for (int i = 0; i < 6; i++) {
+        int a = Mth.clamp((int) (alpha * 110), 0, 255);
+        for (int i = 0; i < 8; i++) {
             g.pose().pushPose();
             g.pose().translate(x, y, 0);
-            g.pose().mulPose(Axis.ZP.rotationDegrees(degrees + i * 60));
-            g.fillGradient(-1, -(int) length, 1, 0, (a << 24) | 0xFFF4C0, 0x00FFF4C0);
+            g.pose().mulPose(Axis.ZP.rotationDegrees(degrees + i * 45));
+            g.fillGradient(0, -(int) length, 1, -6, 0x00FFF4C0, (a << 24) | 0xFFF4C0);
             g.pose().popPose();
         }
     }
 
+    /**
+     * Lost heart. Whole heart: on its slot (which the vanilla bar no longer draws), it pales and trembles, then breaks
+     * in two halves that fall away; nothing stays behind. Half heart: it pales, shrinks and fades.
+     */
     private static void loss(GuiGraphics g, Anim a, float t, float x, float y) {
         ResourceLocation sprite = a.half() ? HALF : FULL;
-        if (a.duration() < 20) {
-            // half heart: fades out, shrinking and darkening
+        if (a.half()) {
             float k = t / a.duration();
-            g.setColor(1 - 0.5f * k, 1 - 0.8f * k, 1 - 0.8f * k, 1);
-            heart(g, sprite, x, y + 4 * k, 1 - 0.5f * k, 1 - k);
+            g.setColor(1, 1 - 0.4f * k, 1 - 0.4f * k, 1);
+            heart(g, sprite, x, y + 3 * k, 1 - 0.4f * k, 1 - k);
             g.setColor(1, 1, 1, 1);
             return;
         }
-        if (t < 7) {
-            // shakes and whitens
-            float k = t / 7f;
-            float shake = 1.5f * k;
-            float dx = (float) Math.sin(t * 9) * shake, dy = (float) Math.cos(t * 7) * shake;
-            heart(g, CONTAINER, x + dx, y + dy, 1.3f, 1);
-            heart(g, sprite, x + dx, y + dy, 1.3f, 1);
-            g.fill((int) (x + dx) - 5, (int) (y + dy) - 5, (int) (x + dx) + 6, (int) (y + dy) + 6, ((int) (k * 140) << 24) | 0xFFFFFF);
+        ResourceLocation content = a.fill() >= 2 ? FULL : a.fill() == 1 ? HALF : null;
+        if (t < VANILLA_LAG + a.hold()) {
+            // Sits exactly on its slot (where the vanilla bar still draws an empty container), drains and, at the end,
+            // trembles by one pixel.
+            float k = Math.min(1, t / VANILLA_LAG);
+            float dx = k > 0.6f ? Math.round(Math.sin(t * 9)) : 0;
+            heart(g, CONTAINER, x + dx, y, 1, 1);
+            if (content != null) {
+                g.setColor(1, 1 - 0.6f * k, 1 - 0.6f * k, 1);
+                heart(g, content, x + dx, y, 1, 1);
+                g.setColor(1, 1, 1, 1);
+            }
             return;
         }
-        // breaks in two halves that fall away, spinning, with a few red shards
-        float k = (t - 7) / (a.duration() - 7f);
-        float fall = 30 * k * k;
+        // The slot is gone from the bar: the heart breaks in two halves that spin and fall away; nothing stays behind.
+        float k = (t - VANILLA_LAG - a.hold()) / (a.duration() - VANILLA_LAG - a.hold());
+        float fall = 26 * k * k;
         float alpha = 1 - k;
         for (int side = -1; side <= 1; side += 2) {
+            if (content == HALF && side == 1) {
+                continue; // only a left half was red
+            }
             g.pose().pushPose();
-            g.pose().translate(x + side * (2 + 10 * k), y - 6 * k + fall, 0);
-            g.pose().mulPose(Axis.ZP.rotationDegrees(side * 70 * k));
-            g.pose().scale(side * 1.3f, 1.3f, 1); // the right half is the left half, mirrored
-            g.setColor(1, 1, 1, alpha);
-            g.blitSprite(HALF, -4, -4, 9, 9);
+            g.pose().translate(x + side * (1 + 9 * k), y - 5 * k + fall, 0);
+            g.pose().mulPose(Axis.ZP.rotationDegrees(side * 80 * k));
+            g.pose().scale(side, 1, 1); // the right half is the left half, mirrored
+            if (content == null) {
+                g.setColor(0.4f, 0.4f, 0.4f, alpha);
+            } else {
+                g.setColor(0.6f, 0.4f, 0.4f, alpha);
+            }
+            g.blitSprite(content == null ? CONTAINER : HALF, -4, -4, 9, 9);
             g.setColor(1, 1, 1, 1);
             g.pose().popPose();
+            if (content == null) {
+                break; // an empty container just falls
+            }
         }
         int shard = Mth.clamp((int) (alpha * 255), 0, 255);
         for (int i = 0; i < 6; i++) {
-            float px = x + (i - 2.5f) * 4 * (0.5f + k), py = y + fall * (0.6f + i % 3 * 0.25f) - 4 * (float) Math.sin(i + k * 3);
-            g.fill((int) px, (int) py, (int) px + 1, (int) py + 1, (shard << 24) | 0xB01010);
+            float px = x + (i - 2.5f) * 3 * (0.5f + 1.5f * k), py = y + fall * (0.5f + (i % 3) * 0.3f) - 3 * (float) Math.sin(i + k * 4);
+            g.fill(Math.round(px), Math.round(py), Math.round(px) + 1, Math.round(py) + 1, (shard << 24) | 0x9A1010);
         }
     }
 }

@@ -107,6 +107,9 @@ public final class BountyCommands {
                                 .then(Commands.argument("id", StringArgumentType.word()).suggests(activeIds)
                                         .executes(BountyCommands::adminCancel)))
                         .then(Commands.literal("list").executes(ctx -> list(ctx, true)))
+                        .then(Commands.literal("clearimmunity")
+                                .then(Commands.argument("player", StringArgumentType.word()).suggests(knownNames)
+                                        .executes(BountyCommands::clearImmunity)))
                         .then(Commands.literal("hearts")
                                 .then(Commands.argument("player", StringArgumentType.word()).suggests(knownNames)
                                         .executes(BountyCommands::hearts)))));
@@ -303,6 +306,18 @@ public final class BountyCommands {
         manager.immuneUntil(who).ifPresent(until -> src.sendSuccess(() ->
                 Component.translatable("bloodcontracts.gui.immune_for", Durations.of(until - manager.now())), false));
         return hp;
+    }
+
+    /** Operators: ends a player's immunity now, so bounties on them can be collected again. */
+    private static int clearImmunity(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        BountyManager manager = manager(ctx);
+        UUID who = player(manager, StringArgumentType.getString(ctx, "player"));
+        if (!manager.clearImmunity(who)) {
+            ctx.getSource().sendFailure(Component.translatable("bloodcontracts.command.not_immune", manager.nameOf(who)));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("bloodcontracts.command.immunity_cleared", manager.nameOf(who)), true);
+        return 1;
     }
 
     /** "-1.5" hearts from HP. */

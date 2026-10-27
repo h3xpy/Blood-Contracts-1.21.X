@@ -19,7 +19,7 @@ objet de son inventaire ; celui qui tue la cible le reçoit. Le serveur ne crée
 - Commandes : `/bounty place <joueur> [public | private <joueurs…>]` (objet en main), `/bounty addhunter <id> <joueur>`,
   `/bounty makepublic <id>`, `/bounty cancel <id>` (préavis), `/bounty resume <id>`, `/bounty list`, `/bounty info <id>`,
   `/bounty claim`, `/bounty history`, `/bounty gui`. Opérateurs : `/bounty admin list`, `/bounty admin cancel <id>` (immédiat),
-  `/bounty admin hearts <joueur>`.
+  `/bounty admin hearts <joueur>`, `/bounty admin clearimmunity <joueur>`.
 
 Configuration serveur : `serverconfig/bloodcontracts-server.toml` dans le dossier du monde (attribution, limites, préavis,
 cœurs et retour progressif, immunité, blacklist, familiers, visibilité du commanditaire, historique). Le détail des clés
