@@ -5,8 +5,8 @@ Dernière exécution : 2026-10-27 (NeoForge 21.1.248).
 | Suite | Commande | Résultat |
 |---|---|---|
 | JUnit (logique pure) | `./gradlew test` | ✅ 53/53 |
-| GameTests, sans Create ni CBC | `./gradlew runGameTestServer` | ✅ 88/88 |
-| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells 1.4.0 (les 88 tests de base + 8 de compat) | `./gradlew runGameTestServerCompat` | ✅ 96/96 |
+| GameTests, sans Create ni CBC | `./gradlew runGameTestServer` | ✅ 89/89 |
+| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells 1.4.0 (les 89 tests de base + 8 de compat) | `./gradlew runGameTestServerCompat` | ✅ 97/97 |
 
 Les serveurs de GameTest s'arrêtent avec un code non nul si un test échoue. Chaque GameTest tourne dans son propre batch
 (ils partagent l'état global du `BountyManager`) et commence par `TestSupport.reset()`, qui remet la config, le PvP,
@@ -127,6 +127,7 @@ Tests JUnit : `V2ModelTest` (types, élargissement seul, préavis, persistance v
 | ✅ | La vue contient le `GameProfile` de la cible avec ses textures, y compris hors ligne | `V2NetworkTests.bountiesOnOneTargetMakeOnePosterWithTheSkin` | Propriété `textures` signée, après encodage réseau |
 | ✅ | Plusieurs primes sur une cible : une seule entrée | `V2NetworkTests.bountiesOnOneTargetMakeOnePosterWithTheSkin` | Ordre de création ; tri éligibles d'abord puis récentes : `collectablePostersComeFirst` |
 | ✅ | Valeurs de config envoyées pour l'aide = config serveur | `V2NetworkTests.helpSettingsMatchTheServerConfig` | Envoyées à la connexion |
+| ✅ | (ajout) Le commanditaire en ligne est prévenu quand sa cible tombe sous contrat | `V2NetworkTests.sponsorIsToldTheirTargetWentDown` | Une seule fois, avec le chasseur et le cœur gagné ; rien pour le chasseur |
 | ✅ | Immunité et préavis dans la vue | `V2NetworkTests.viewsCarryImmunityAndNotice` | Plus l'horloge du serveur, pour les comptes à rebours |
 | ✅ | Toutes les clés de traduction existent en `fr_fr` et `en_us` | `TranslationKeysTest` | Parcourt le code, les JSON de données et les clés construites depuis les enums ; mêmes clés et mêmes `%s` dans les deux langues |
 
@@ -138,7 +139,10 @@ ligne, succès (`AdvancementTests`), onglet « À réclamer » : tous verts, inc
 
 Le rendu des écrans est semi-automatisé : `./gradlew runBoardDebug` ouvre la sauvegarde « New World », remplit le
 tableau avec des données d'exemple et prend une capture de chaque onglet, du détail, du sélecteur de chasseurs et de
-l'écran de création (`run/screenshots/board_*.png`), puis quitte. `./gradlew runAlertDebug` fait de même pour l'alerte.
+l'écran de création (`run/screenshots/board_*.png`), puis quitte. `./gradlew runFxDebug` capture l'alerte (en jeu, en
+pause sous un menu, à la reprise), les notifications (« à réclamer », « contrat rempli ») et l'animation d'un cœur gagné
+puis perdu, déclenchée par le vrai modificateur côté serveur (`run/screenshots/fx_*.png`). `./gradlew runAlertDebug`
+garde l'ancien parcours de l'alerte à travers plusieurs écrans.
 Les captures du 2026-10-27 ont été relues.
 
 À vérifier en jeu, de préférence à trois en LAN (voir README) :
@@ -149,4 +153,6 @@ Les captures du 2026-10-27 ont été relues.
 - [ ] **Création** : bascule Publique/Privée, avertissement public, sélection des chasseurs, « Signer » grisé tant qu'il manque une cible, un objet ou un chasseur ; cliquer dans le panneau de droite avec un objet en main ne le lâche pas ; « ◀ Tableau des primes » rend les objets posés.
 - [ ] **Cœurs** : barre de vie qui change après une prime remportée et qui revient en jouant (sans mourir quand le maximum baisse).
 - [ ] **Comment ça marche** : textes en français avec les valeurs du serveur (changer une valeur de config et se reconnecter).
-- [ ] **Alerte, toast « à réclamer »** et leur son, comme en 1.0.2.
+- [ ] **Alerte** : bandeau centré, en pause sous un menu (seul un liseré rouge pulse sur les bords), reprise à la fermeture ; sons.
+- [ ] **Notifications** : « à réclamer » et « contrat rempli » (visage de la cible, +1 cœur) avec leur son.
+- [ ] **Animation des cœurs** : un cœur gagné jaillit au-dessus de la barre d'action et file vers sa place ; un cœur perdu se brise ; un demi-cœur rendu fait un petit éclat. Pas d'animation parasite à la connexion, à la réapparition ni en changeant de dimension.

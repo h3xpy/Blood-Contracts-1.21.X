@@ -296,6 +296,22 @@ public final class BCPayloads {
         }
     }
 
+    /** The target of one of the player's bounties was killed under contract. */
+    public record TargetDownPayload(UUID target, String targetName, String hunterName, boolean heartGained) implements CustomPacketPayload {
+        public static final Type<TargetDownPayload> TYPE = BCPayloads.payloadType("target_down");
+        public static final StreamCodec<RegistryFriendlyByteBuf, TargetDownPayload> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, TargetDownPayload::target,
+                ByteBufCodecs.STRING_UTF8, TargetDownPayload::targetName,
+                ByteBufCodecs.STRING_UTF8, TargetDownPayload::hunterName,
+                ByteBufCodecs.BOOL, TargetDownPayload::heartGained,
+                TargetDownPayload::new);
+
+        @Override
+        public Type<TargetDownPayload> type() {
+            return TYPE;
+        }
+    }
+
     /** {@code count} stacks wait in the board's "to claim" tab. */
     public record RewardsAvailablePayload(int count) implements CustomPacketPayload {
         public static final Type<RewardsAvailablePayload> TYPE = BCPayloads.payloadType("rewards_available");

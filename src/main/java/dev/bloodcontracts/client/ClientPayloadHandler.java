@@ -49,9 +49,17 @@ public final class ClientPayloadHandler {
         BountyAlertOverlay.trigger(payload);
     }
 
+    public static void handleTargetDown(BCPayloads.TargetDownPayload payload) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.getToasts().addToast(BloodToast.targetDown(payload));
+        if (mc.screen instanceof BountyBoardScreen) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(dev.bloodcontracts.network.BCPayloads.RequestBountyList.INSTANCE);
+        }
+    }
+
     public static void handleRewardsAvailable(RewardsAvailablePayload payload) {
         Minecraft mc = Minecraft.getInstance();
-        mc.getToasts().addToast(new RewardToast(payload.count()));
+        mc.getToasts().addToast(BloodToast.rewards(payload.count()));
         if (mc.screen instanceof BountyBoardScreen) {
             net.neoforged.neoforge.network.PacketDistributor.sendToServer(dev.bloodcontracts.network.BCPayloads.RequestBountyList.INSTANCE);
         }

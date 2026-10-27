@@ -157,5 +157,7 @@
   "bloodcontracts.help.immunity.title": "Immunity",
   "bloodcontracts.help.immunity.body": "After a death that pays a bounty, the target is immune for %s of real time: no bounty can be collected on them. Logging out wastes it.",
   "bloodcontracts.help.claim.title": "Getting your items",
-  "bloodcontracts.help.claim.body": "Rewards you won and refunded items wait for you in the \"To claim\" tab."
+  "bloodcontracts.help.claim.body": "Rewards you won and refunded items wait for you in the \"To claim\" tab.",
+  "bloodcontracts.toast.target_down.title": "Contract fulfilled",
+  "bloodcontracts.toast.target_down.body": "%s took down %s"
 }

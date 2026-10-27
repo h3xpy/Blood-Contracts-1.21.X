@@ -218,4 +218,70 @@ final class BCGui {
             }
         }
     }
+
+    /**
+     * Bookmark tab sitting on top of a panel: an item icon, and the label only when selected (the selected tab is wider,
+     * taller, and merges into the panel's parchment). Unselected tabs show their name as a tooltip.
+     */
+    static class BoardTab extends Button {
+        static final int SMALL = 24;
+        static final int RAISE = 4;
+        final net.minecraft.world.item.ItemStack icon;
+        private final Component label;
+        boolean selected;
+        /** Something waits behind this tab: pulsing blood-drop badge. */
+        boolean attention;
+
+        BoardTab(net.minecraft.world.item.ItemStack icon, Component label, OnPress onPress) {
+            super(0, 0, SMALL, 19, Component.empty(), onPress, DEFAULT_NARRATION);
+            this.icon = icon;
+            this.label = label;
+            setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
+        }
+
+        /** Width this tab wants: icon only, or icon and label when selected. */
+        int wantedWidth(Font font) {
+            return selected ? SMALL + font.width(label) + 8 : SMALL;
+        }
+
+        /** Places the tab; {@code panelTop} is where the panel frame starts (the selected tab overlaps it). */
+        void place(int x, int panelTop, Font font) {
+            setX(x);
+            setWidth(wantedWidth(font));
+            setY(selected ? panelTop - 18 : panelTop - 18 + RAISE);
+            setHeight(selected ? 23 : 18 - RAISE + 2);
+            setTooltip(selected ? null : net.minecraft.client.gui.components.Tooltip.create(label));
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            int x = getX(), y = getY(), w = getWidth(), h = getHeight();
+            Font font = Minecraft.getInstance().font;
+            // frame: dark wood, open at the bottom for the selected tab
+            g.fill(x, y, x + w, y + h, WOOD_DARK);
+            if (selected) {
+                parchment(g, x + 1, y + 1, w - 2, h - 1);
+                g.fill(x + 1, y + 1, x + w - 1, y + 3, BLOOD);
+                g.fillGradient(x + 1, y + 3, x + w - 1, y + 7, 0x40000000, 0x00000000);
+            } else {
+                int top = isHoveredOrFocused() ? 0xFFC0A878 : 0xFFA88E64;
+                g.fillGradient(x + 1, y + 1, x + w - 1, y + h, top, 0xFF7E6846);
+                g.fill(x + 1, y + 1, x + w - 1, y + 2, 0x40FFFFFF);
+            }
+            int iconY = selected ? y + 5 : y + (h - 16) / 2 + 1;
+            g.renderItem(icon, x + 4, iconY);
+            if (selected) {
+                g.drawString(font, label, x + SMALL + 2, y + 9, BLOOD, false);
+            }
+            if (attention) {
+                float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 180.0));
+                g.pose().pushPose();
+                g.pose().translate(x + w - 4, y + 1, 200);
+                float badge = 0.6f + 0.2f * pulse;
+                g.pose().scale(badge, badge, 1);
+                drop(g, -8, -8);
+                g.pose().popPose();
+            }
+        }
+    }
 }

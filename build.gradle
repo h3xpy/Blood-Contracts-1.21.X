@@ -161,6 +161,15 @@ neoForge {
             systemProperty 'bloodcontracts.debugScenario', 'board'
         }
 
+        // Same, for the alert, the notification toasts and the heart animations (run/screenshots/fx_*.png).
+        fxDebug {
+            client()
+            sourceSet = sourceSets.clientdebug
+            loadedMods = [mods."${mod_id}", mods.bloodcontracts_debug]
+            programArguments.addAll '--username', 'Joueur1', '--quickPlaySingleplayer', 'New World'
+            systemProperty 'bloodcontracts.debugScenario', 'fx'
+        }
+
         // Same GameTests plus the compat ones, with Create, CBC and RPL loaded.
         gameTestServerCompat {
             type = "gameTestServer"

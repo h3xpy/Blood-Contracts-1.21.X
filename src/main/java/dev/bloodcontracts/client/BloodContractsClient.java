@@ -33,6 +33,8 @@ public class BloodContractsClient {
                 BountyAlertOverlay.render(g, delta);
             }
         }));
+        modBus.addListener((RegisterGuiLayersEvent e) -> e.registerAbove(
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.PLAYER_HEALTH, HeartAnimations.LAYER, HeartAnimations::render));
         NeoForge.EVENT_BUS.addListener((ScreenEvent.Render.Post e) ->
                 BountyAlertOverlay.render(e.getGuiGraphics(), Minecraft.getInstance().getTimer()));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) -> {
@@ -41,6 +43,7 @@ public class BloodContractsClient {
         });
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> {
             BountyAlertOverlay.tick();
+            HeartAnimations.tick();
             Minecraft mc = Minecraft.getInstance();
             while (OPEN_BOARD.consumeClick()) {
                 if (mc.player != null && mc.screen == null && mc.getConnection() != null) {

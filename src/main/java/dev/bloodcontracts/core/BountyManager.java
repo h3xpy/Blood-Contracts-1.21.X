@@ -550,6 +550,12 @@ public final class BountyManager {
             refreshHearts(heartTo);
         }
         notifyRewardsAvailable(hunter);
+        for (Bounty b : claimed) {
+            ServerPlayer sponsor = server.getPlayerList().getPlayer(b.sponsor());
+            if (sponsor != null) {
+                BountyNotifier.get().targetDown(sponsor, b, nameOf(hunter), b.sponsor().equals(heartTo));
+            }
+        }
         return claimed;
     }
 

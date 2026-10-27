@@ -32,6 +32,14 @@ public final class NetworkNotifier implements BountyNotifier {
     }
 
     @Override
+    public void targetDown(ServerPlayer sponsor, Bounty bounty, String hunterName, boolean heartGained) {
+        String targetName = BountyManager.get(sponsor.server).nameOf(bounty.target());
+        if (!ServerPayloadHandler.send(sponsor, new BCPayloads.TargetDownPayload(bounty.target(), targetName, hunterName, heartGained))) {
+            sponsor.displayClientMessage(Component.translatable("bloodcontracts.toast.target_down.body", hunterName, targetName), true);
+        }
+    }
+
+    @Override
     public void loggedIn(ServerPlayer player) {
         ServerPayloadHandler.send(player, BCPayloads.HelpConfigPayload.fromConfig());
     }

@@ -157,5 +157,7 @@
   "bloodcontracts.help.immunity.title": "L'immunité",
   "bloodcontracts.help.immunity.body": "Après une mort qui paie une prime, la cible est immunisée pendant %s en temps réel : aucune prime ne peut être encaissée sur elle. Se déconnecter la gaspille.",
   "bloodcontracts.help.claim.title": "Récupérer ses objets",
-  "bloodcontracts.help.claim.body": "Les récompenses gagnées et les objets remboursés vous attendent dans l'onglet « À réclamer »."
+  "bloodcontracts.help.claim.body": "Les récompenses gagnées et les objets remboursés vous attendent dans l'onglet « À réclamer ».",
+  "bloodcontracts.toast.target_down.title": "Contrat rempli",
+  "bloodcontracts.toast.target_down.body": "%s a abattu %s"
 }

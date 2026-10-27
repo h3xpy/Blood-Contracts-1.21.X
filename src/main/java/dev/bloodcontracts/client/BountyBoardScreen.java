@@ -38,6 +38,8 @@ public class BountyBoardScreen extends Screen {
 
     private static final int WIDTH = 392;
     private static final int HEIGHT = 250;
+    /** The tabs take the first pixels; the panel frame starts below them. */
+    private static final int PANEL_OFFSET = 18;
     private static final int TOP = 30;
     private static final int BOTTOM = 222;
     private static final int COLS = 5;
@@ -61,7 +63,7 @@ public class BountyBoardScreen extends Screen {
     private boolean loaded;
     private final Map<UUID, Float> hover = new HashMap<>();
 
-    private final Map<Tab, BCGui.TabButton> tabs = new HashMap<>();
+    private final Map<Tab, BCGui.BoardTab> tabs = new java.util.EnumMap<>(Tab.class);
     private BCGui.BloodButton prev;
     private BCGui.BloodButton next;
     private BCGui.BloodButton back;
@@ -98,12 +100,9 @@ public class BountyBoardScreen extends Screen {
     @Override
     protected void init() {
         int l = left(), t = top();
-        int tabW = (WIDTH - 20 - 3 * (Tab.values().length - 1)) / Tab.values().length;
-        int x = l + 10;
+        tabs.clear();
         for (Tab tb : Tab.values()) {
-            BCGui.TabButton button = addRenderableWidget(new BCGui.TabButton(x, t + 9, tabW, 16, tabLabel(tb), b -> switchTab(tb)));
-            tabs.put(tb, button);
-            x += tabW + 3;
+            tabs.put(tb, addRenderableWidget(new BCGui.BoardTab(tabIcon(tb), tabLabel(tb), b -> switchTab(tb))));
         }
         int by = t + HEIGHT - 25;
         prev = addRenderableWidget(new BCGui.BloodButton(l + WIDTH / 2 - 46, by, 20, 16, Component.literal("◀"), b -> turn(-1), false));
@@ -143,6 +142,22 @@ public class BountyBoardScreen extends Screen {
             refreshWidgets();
         }, false);
         refreshWidgets();
+    }
+
+    private static ItemStack tabIcon(Tab tb) {
+        return new ItemStack(switch (tb) {
+            case WANTED -> Items.PLAYER_HEAD;
+            case CREATE -> Items.WRITABLE_BOOK;
+            case MINE -> Items.PAPER;
+            case CLAIM -> Items.CHEST;
+            case HISTORY -> Items.BOOK;
+            case HELP -> Items.KNOWLEDGE_BOOK;
+        });
+    }
+
+    /** Top of the panel frame: the tabs sit above it. */
+    private int panelTop() {
+        return top() + PANEL_OFFSET;
     }
 
     private Component tabLabel(Tab tb) {
@@ -270,11 +285,14 @@ public class BountyBoardScreen extends Screen {
         if (prev == null) {
             return;
         }
-        tabs.forEach((tb, button) -> {
-            button.setMessage(tabLabel(tb));
+        int x = left() + 12;
+        for (Tab tb : Tab.values()) {
+            BCGui.BoardTab button = tabs.get(tb);
             button.selected = tb == tab;
             button.active = !picking;
-        });
+            button.place(x, panelTop(), font);
+            x += button.getWidth() + 2;
+        }
         tabs.get(Tab.CLAIM).attention = !claimable.isEmpty();
         boolean grid = detail == null && (tab == Tab.WANTED || tab == Tab.HISTORY);
         prev.visible = next.visible = grid && pages() > 1 && !picking;
@@ -303,8 +321,7 @@ public class BountyBoardScreen extends Screen {
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(g, mouseX, mouseY, partialTick);
         int l = left(), t = top();
-        BCGui.panel(g, l, t, WIDTH, HEIGHT);
-        g.fill(l + 10, t + 25, l + WIDTH - 10, t + 26, 0xFF3B2412);
+        BCGui.panel(g, l, t + PANEL_OFFSET, WIDTH, HEIGHT - PANEL_OFFSET);
     }
 
     @Override

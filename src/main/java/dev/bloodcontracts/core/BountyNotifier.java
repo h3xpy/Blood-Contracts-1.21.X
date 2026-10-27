@@ -18,6 +18,13 @@ public interface BountyNotifier {
     /** {@code player} has {@code count} stacks waiting to be claimed in the board. */
     void rewardsAvailable(ServerPlayer player, int count);
 
+    /**
+     * The target of {@code sponsor}'s bounty was killed and the bounty collected by {@code hunterName}.
+     *
+     * @param heartGained the sponsor received the heart taken from the target
+     */
+    default void targetDown(ServerPlayer sponsor, Bounty bounty, String hunterName, boolean heartGained) {}
+
     /** {@code player} just logged in (the client gets the settings its help tab shows). */
     default void loggedIn(ServerPlayer player) {}
 

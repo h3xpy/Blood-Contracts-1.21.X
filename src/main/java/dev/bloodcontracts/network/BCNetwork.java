@@ -44,6 +44,8 @@ public final class BCNetwork {
                 (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleAlert(payload)));
         registrar.playToClient(BCPayloads.RewardsAvailablePayload.TYPE, BCPayloads.RewardsAvailablePayload.STREAM_CODEC,
                 (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleRewardsAvailable(payload)));
+        registrar.playToClient(BCPayloads.TargetDownPayload.TYPE, BCPayloads.TargetDownPayload.STREAM_CODEC,
+                (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleTargetDown(payload)));
         registrar.playToClient(BCPayloads.HelpConfigPayload.TYPE, BCPayloads.HelpConfigPayload.STREAM_CODEC,
                 (payload, ctx) -> ctx.enqueueWork(() -> dev.bloodcontracts.client.ClientPayloadHandler.handleHelpConfig(payload)));
     }

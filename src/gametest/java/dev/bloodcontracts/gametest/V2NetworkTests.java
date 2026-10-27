@@ -255,6 +255,26 @@ public class V2NetworkTests {
         helper.succeed();
     }
 
+    @GameTest(template = T, batch = "v2net_target_down")
+    public static void sponsorIsToldTheirTargetWentDown(GameTestHelper helper) {
+        BountyManager manager = TestSupport.reset(helper);
+        TestSupport.clock(manager);
+        ServerPlayer sponsor = TestPlayers.sponsor(helper);
+        ServerPlayer target = TestPlayers.target(helper);
+        ServerPlayer hunter = TestPlayers.hunter(helper);
+        hold(sponsor, new ItemStack(Items.DIAMOND));
+        placeFromHand(manager, sponsor, target);
+        TestPlayers.sentPayloads(sponsor, BCPayloads.TargetDownPayload.class);
+        manager.onDeath(target, target.damageSources().playerAttack(hunter));
+        List<BCPayloads.TargetDownPayload> sent = TestPlayers.sentPayloads(sponsor, BCPayloads.TargetDownPayload.class);
+        helper.assertTrue(sent.size() == 1, "sponsor not told once, got " + sent.size());
+        BCPayloads.TargetDownPayload p = sent.get(0);
+        helper.assertTrue(p.target().equals(target.getUUID()) && p.hunterName().equals(hunter.getGameProfile().getName())
+                && p.heartGained(), "wrong notice: " + p);
+        helper.assertTrue(TestPlayers.sentPayloads(hunter, BCPayloads.TargetDownPayload.class).isEmpty(), "hunter got the sponsor's notice");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- commands
 
     private static int run(ServerPlayer player, String command) {
