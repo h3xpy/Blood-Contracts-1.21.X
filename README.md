@@ -4,20 +4,26 @@ Mod NeoForge 1.21.1 : des primes sur les joueurs, financées exclusivement par l
 objet de son inventaire ; celui qui tue la cible le reçoit. Le serveur ne crée jamais d'objet.
 
 ## Jouer
-- Touche `B` : tableau des primes, avec trois onglets (« Ouverts », « À réclamer », « Historique »).
-  - **Nouvelle prime** : le joueur choisit la cible parmi tous les joueurs déjà venus sur le serveur, **même hors ligne**
-    (recherche par nom), puis dépose la récompense et signe le contrat. Par défaut il n'y a qu'un emplacement ;
-    le bouton « + objets » en ouvre 9 pour offrir plusieurs objets différents.
+- Touche `B` : tableau des primes. Onglets « Recherchés » (une affiche « avis de recherche » par cible, avec son visage,
+  ses récompenses et ses tampons), « + Créer », « Mes primes », « À réclamer », « Historique » et « Comment ça marche ? ».
+  - **Nouvelle prime** : le joueur choisit la cible parmi tous les joueurs déjà venus sur le serveur, **même hors ligne**,
+    le type (**publique**, ou **privée** avec une liste secrète de chasseurs), puis dépose la récompense (un emplacement,
+    ou 9 avec « + objets ») et signe. Une prime ne peut qu'être élargie (ajouter des chasseurs, la rendre publique).
+  - **Annulation** : la prime reste encaissable pendant un préavis de 30 min, avec un compte à rebours, et peut être reprise.
+  - **Cœurs** : une mort sous contrat coûte un cœur à la cible, gagné par le commanditaire ; ils reviennent petit à petit
+    (plus vite en jouant). La cible est ensuite immunisée 2 h en temps réel.
   - **À réclamer** : les gains et les remboursements ne tombent jamais tout seuls dans l'inventaire. Ils attendent ici
     (une notification l'annonce) et se récupèrent avec « Réclamer » ou « Tout réclamer ».
 - Une cible en ligne reçoit une **alerte plein écran** : vignette rouge pulsante, titre qui tremble, malédiction puis
   battements de cœur. Une cible hors ligne la reçoit à sa connexion.
-- Commandes : `/bounty place <joueur>` (objet en main, cible en ligne ou non), `/bounty list`, `/bounty info <id>`,
-  `/bounty cancel <id>`, `/bounty claim`, `/bounty history`, `/bounty gui`. Opérateurs : `/bounty admin list`, `/bounty admin cancel <id>`.
+- Commandes : `/bounty place <joueur> [public | private <joueurs…>]` (objet en main), `/bounty addhunter <id> <joueur>`,
+  `/bounty makepublic <id>`, `/bounty cancel <id>` (préavis), `/bounty resume <id>`, `/bounty list`, `/bounty info <id>`,
+  `/bounty claim`, `/bounty history`, `/bounty gui`. Opérateurs : `/bounty admin list`, `/bounty admin cancel <id>` (immédiat),
+  `/bounty admin hearts <joueur>`.
 
-Configuration serveur : `serverconfig/bloodcontracts-server.toml` dans le dossier du monde (fenêtre d'attribution, verrou d'annulation,
-limite par commanditaire, blacklist, familiers, visibilité du commanditaire, nom du commanditaire dans l'alerte
-`alertRevealsSponsor`, taille de l'historique).
+Configuration serveur : `serverconfig/bloodcontracts-server.toml` dans le dossier du monde (attribution, limites, préavis,
+cœurs et retour progressif, immunité, blacklist, familiers, visibilité du commanditaire, historique). Le détail des clés
+et la mise à jour depuis la 1.0.x sont dans [docs/CHANGELOG_V2.md](docs/CHANGELOG_V2.md).
 Les dégâts « environnementaux » (vide, chute, lave…) qui peuvent être attribués au dernier attaquant sont définis par le tag
 de types de dégâts `bloodcontracts:environmental`, extensible par datapack.
 

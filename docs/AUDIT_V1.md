@@ -105,3 +105,17 @@ Audit fait avant toute modification. La v1 est celle qui tourne en production : 
 - **Impact** : refonte complète des écrans. Aucun impact sur les données.
 - **Recommandation** : appliquer la v2, en gardant l'onglet « À réclamer » si C4 = garder.
 - **Décision (2026-10-27)** : interface v2, plus l'onglet « À réclamer ».
+
+## Suivi de la mise en œuvre (2026-10-27)
+
+Tous les points 🔧 sont intégrés, avec les décisions C1 à C5 ci-dessus :
+- C1 : préavis de 30 min ; `cancelLockSeconds` gardée mais sans effet (obsolète).
+- C2 + C3 : une prime par paire commanditaire-cible, défaut `maxActiveBountiesPerSponsor` = 3. Un fichier de config
+  existant garde 5 : à passer à 3 à la main au déploiement (voir `CHANGELOG_V2.md`).
+- C4 : récompenses toujours « à réclamer » (onglet, notification, `/bounty claim`).
+- C5 : interface v2 (affiches), avec l'onglet « À réclamer » en plus.
+
+Les fonctionnalités ❓ sont toutes gardées. Précision d'interprétation : « au-delà de `repeatPairThreshold` » est compris
+strictement (seuil 2 : affiché à partir de 3 primes, comme l'exemple de la spécification).
+
+État des tests : `docs/TEST_STATUS.md`. Changements et déploiement : `docs/CHANGELOG_V2.md`.
