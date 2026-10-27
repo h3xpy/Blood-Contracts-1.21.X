@@ -44,6 +44,13 @@
 - Un chasseur qui a encaissé plus de 2 primes sur la même cible est signalé sur l'affiche (« Y a encaissé 3 primes sur X »),
   à titre d'information seulement.
 
+**Alertes et notifications**
+- L'alerte « ta tête est mise à prix » est un bandeau au centre de l'écran. Si un menu est ouvert, elle se met en pause
+  (seul un liseré rouge pulse sur les bords) et reprend en revenant au jeu.
+- Notifications aux couleurs du mod : « objets à réclamer », et « contrat rempli » pour le commanditaire quand sa cible
+  tombe (avec le chasseur et le cœur gagné).
+- Un cœur gagné jaillit au-dessus de la barre d'action et file vers sa place ; un cœur perdu se brise en deux.
+
 **Commandes**
 - `/bounty place <joueur> [public | private <joueurs…>]` (objet en main).
 - `/bounty addhunter <id> <joueur>`, `/bounty makepublic <id>`.
