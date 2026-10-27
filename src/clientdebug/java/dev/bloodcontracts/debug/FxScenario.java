@@ -57,7 +57,7 @@ public class FxScenario {
                 p.setGameMode(GameType.SURVIVAL);
                 p.getAttribute(Attributes.MAX_HEALTH).removeModifier(BountyManager.HEART_MODIFIER);
             });
-            BountyAlertOverlay.trigger(new BountyAlertPayload(Optional.of("Grumm"),
+            BountyAlertOverlay.trigger(new BountyAlertPayload(Optional.of("Ysolde"),
                     List.of(new ItemStack(Items.DIAMOND, 12), new ItemStack(Items.NETHERITE_INGOT, 2), new ItemStack(Items.TOTEM_OF_UNDYING)), 3, false));
         });
         shot(24, "01_alert_opening");

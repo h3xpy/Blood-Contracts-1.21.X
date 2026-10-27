@@ -96,7 +96,7 @@ public class BoardScenario {
         return detailTarget;
     }
 
-    private static final String[] NAMES = {"Brigand", "Fennec", "Notch", "Dinnerbone", "Jeb_", "Grumm", "Marie", "Lucas", "Inès", "Hugo", "Sacha"};
+    private static final String[] NAMES = {"Brigand", "Fennec", "Corvus", "Mirabelle", "Tobias", "Ysolde", "Marie", "Lucas", "Inès", "Hugo", "Sacha"};
 
     private static UUID id(String name) {
         return UUID.nameUUIDFromBytes(name.getBytes());
@@ -117,7 +117,7 @@ public class BoardScenario {
         // Detailed target: three bounties, one of them mine (private, under notice), immune for a while.
         UUID brigand = detailTarget();
         List<BountyView> onBrigand = List.of(
-                view(brigand, "Brigand", "Grumm", false, BountyType.PUBLIC, List.of(new ItemStack(Items.DIAMOND, 12)), now - 7_200_000, Optional.empty(), Optional.empty(), true),
+                view(brigand, "Brigand", "Ysolde", false, BountyType.PUBLIC, List.of(new ItemStack(Items.DIAMOND, 12)), now - 7_200_000, Optional.empty(), Optional.empty(), true),
                 view(brigand, "Brigand", "Joueur1", true, BountyType.PRIVATE, List.of(new ItemStack(Items.NETHERITE_INGOT, 2), new ItemStack(Items.GOLDEN_APPLE, 5)),
                         now - 3_600_000, Optional.of(List.of(new BountyView.HunterRef(id("Fennec"), "Fennec"), new BountyView.HunterRef(id("Marie"), "Marie"))),
                         Optional.of(now + 23 * 60_000), false),
@@ -146,8 +146,8 @@ public class BoardScenario {
                     i == 1 ? BountyType.PRIVATE : BountyType.PUBLIC, Optional.empty(), Optional.empty(), false));
         }
         List<DeliveryView> claimable = List.of(
-                new DeliveryView(UUID.randomUUID(), new ItemStack(Items.DIAMOND, 12), PendingDelivery.Reason.REWARD, "Grumm"),
-                new DeliveryView(UUID.randomUUID(), new ItemStack(Items.EMERALD, 4), PendingDelivery.Reason.REFUND, "Notch"));
+                new DeliveryView(UUID.randomUUID(), new ItemStack(Items.DIAMOND, 12), PendingDelivery.Reason.REWARD, "Ysolde"),
+                new DeliveryView(UUID.randomUUID(), new ItemStack(Items.EMERALD, 4), PendingDelivery.Reason.REFUND, "Corvus"));
         return new BountyListPayload(wanted, history, claimable, now, false, Optional.empty(), false);
     }
 

@@ -2,65 +2,79 @@
 
 # Put a price on your friends' heads.
 
-**Blood Contracts** adds player-funded bounties to your server. Pick a target, put real items on their head, and
-let the whole server hunt them down. Whoever takes them out claims the loot.
+**Blood Contracts** adds player-funded bounties to your server. Pick a target, put real items on their head, and let
+the server hunt them down. Whoever takes them out claims the loot, and the target loses a heart.
 
-The server never creates a single item: every reward comes out of a player's inventory. It's made for small
-servers of friends (Create bases, everyone in their corner) that want a reason to go out, gear up and settle scores,
-without organised events or a permanent war zone.
+The server never creates a single item: every reward comes out of a player's inventory. It's made for small servers of
+friends (Create bases, everyone in their corner) that want a reason to go out, gear up and settle scores, without
+organised events or a permanent war zone.
 
 ---
 
 ## How it works
 
-1. **Sign the contract.** Press **B** (or `/bounty gui`), choose any player the server knows (online *or offline*),
-   drop the reward in the slot and sign. Need more? **"+ items"** opens up to **9 different stacks**.
-2. **The target is warned. Loudly.** A full-screen alert: blood-red pulsing vignette, shaking title, a curse sting and
-   a racing heartbeat. Offline targets get it the moment they log in.
+1. **Sign the contract.** Press **B**, tab **+ Create**. Choose any player the server knows (online *or offline*), drop
+   the reward in (up to **9 different stacks**) and pick:
+   - **public**: anyone can collect it;
+   - **private**: only the hunters you name. Their list stays secret.
+2. **The target is warned. Loudly.** A blood ribbon across the middle of the screen, a title slamming down, a curse
+   sting and a racing heartbeat. If they are in a menu, the alert waits until they are back in the game.
 3. **Hunt.** Sword, bow, TNT, your tamed wolf, a well-timed shove into the void or lava, or a **Create Big Cannons**
    shell from 300 blocks away.
-4. **Claim the blood money.** Rewards wait in the board's **"To claim"** tab. A toast tells you, and nothing lands in
-   your inventory unasked.
+4. **Claim the blood money.** The hunter gets the items in the **"To claim"** tab. The target loses a heart, which goes
+   to the sponsor, and is then **immune for 2 hours**.
 
-![Sign the contract](FEATURE_CONTRACTS_URL)
+![Wanted posters](FEATURE_CONTRACTS_URL)
 
 ---
 
 ## Features
 
 ### 🩸 Contracts funded by players, not by the server
-- Real items go into escrow the moment you sign: one stack, or up to 9 different ones.
-- Several players can stack bounties on the same target. The hunter collects **all** of them.
-- Cancel your own contract any time... unless the target took damage from a hunter in the last 30 seconds (no
-  cancelling mid-fight).
-- Bounties on **offline players**: anyone who ever joined the server is a valid target.
+- Items go into escrow the moment you sign: one stack, or up to 9 different ones.
+- **One bounty per target and sponsor**, at most 3 active bounties per player. Several players can target the same
+  person: the hunter collects **every** bounty they are entitled to.
+- **A bounty can only be widened**: add hunters, make it public. Nobody can snatch the reward from a hunter at the last
+  second.
+- **Cancelling comes with notice**: the bounty stays posted and collectable for **30 minutes**, with a countdown. The
+  sponsor can resume it meanwhile.
+- Bounties on **offline players**: anyone who ever joined is a valid target.
+
+### ❤️ Hearts at stake
+- A death under contract costs the target **1 heart**, gained by the sponsor (never more than one per death).
+- Floor and ceiling: **−5 / +5 hearts**. Items are paid even when no heart can move any more.
+- Hearts **come back bit by bit**: half a heart every **1h30 of play**, or every **12h offline**. Playing brings them
+  back faster.
+- **2-hour real-time immunity** after a collected bounty: logging out wastes it.
+- A gained heart bursts above the hotbar and flies into its slot; a lost heart shatters before your eyes.
+
+![Hearts at stake](FEATURE_HUNT_URL)
 
 ### 🎯 Fair kills only
-Smart kill attribution that never pays the wrong person. When in doubt, nobody gets paid and the bounty stays open.
-- Arrows, tridents, TNT, potions: the **player behind it** gets paid, never the projectile.
-- Tamed wolves: their owner gets paid (configurable).
+Attribution never pays the wrong player. When in doubt, nobody is paid and the bounty stays open.
+- Arrows, tridents, TNT, potions: the **player behind them** is paid, never the projectile.
+- Tamed wolves: their owner is paid (configurable).
 - **Knocked into the void, lava, a fall or fire?** The last player who hit the target within 10 seconds collects.
-- `/kill`, mobs, machines and Create deployers (fake players): **nobody**.
-- The sponsor killing their own target does **not** get their item back. Other sponsors' bounties still pay them.
-
-![Fair kills only](FEATURE_HUNT_URL)
+- `/kill`, mobs, machines and Create deployers (fake players), totem of undying: **nobody**.
+- A sponsor who kills their own target does **not** get their item back.
 
 ### 💥 Create Big Cannons support (optional)
-Cannon shells have no owner in CBC, so Blood Contracts works out who fired:
-- the player who **pulled the lever, pressed the button or turned the crank next to the cannon mount** within the last
-  10 seconds, or the player **riding the cannon carriage**;
+CBC shells have no owner, so Blood Contracts works out who fired:
+- the player who **pulled the lever, pressed the button or turned the crank next to the mount** in the last
+  10 seconds, or the one **riding the carriage**;
 - impacts, HE blasts, shrapnel, grapeshot and flak are all credited;
 - a cannon fired by a redstone clock with nobody at the controls credits **nobody**.
 
-Also supports **CBC Enchanced Shells** ("More Shells"): Mk.I-V shells, cluster munitions, rockets launched from a
-rocket base, missile mounts.
+Also handles **CBC Enchanced Shells** ("More Shells"): Mk.I to V shells, submunitions, rockets, missile mounts.
 
-### 🔔 Scary alerts, quiet rewards
-- The target gets a full-screen alert, not a chat line. Whether it names the sponsor is configurable.
-- Rewards and refunds wait in the **"To claim"** tab, with a toast notification. You claim one stack or everything.
-  If your inventory is full, the items drop at your feet, are reserved for you, and never despawn.
+### 📜 A western bounty board
+- **Wanted**: one "wanted" poster per target, with their real face (even offline), all their rewards and stamps:
+  **PRIVATE**, **IMMUNE — 1h12**, **EXPIRES IN 23 MIN**, **YOU CAN COLLECT**.
+- Target detail, **My bounties**, **To claim**, **History** stamped "COLLECTED BY …" or "WITHDRAWN".
+- **How to**: the rules, with the values set on your server.
+- Notifications in the mod's style: items to claim, and "contract fulfilled" when your target goes down.
 
-![You've been marked](FEATURE_ALERT_URL)
+![A price on your head](FEATURE_ALERT_URL)
 ![Blood money](FEATURE_CLAIM_URL)
 
 ### 🏆 Advancements
@@ -72,52 +86,60 @@ rocket base, missile mounts.
 | 💣 | **Special Delivery** *(challenge, with Create Big Cannons)* | Collect a bounty with a cannon shot |
 
 ### 🔒 Safe by design
-- **The server never creates items.** At any time, an escrowed item is in exactly one place: the escrow, a pending
-  reward, or a player.
-- The server is authoritative: the client only sends intentions (target, bounty id), never items.
-- Bounties and pending rewards are saved together, so a crash can't lose or duplicate anything. Items from a removed
-  mod are kept untouched until the mod comes back.
-- Backed by **more than 100 automated tests** (JUnit and in-game GameTests, including a real Create Big Cannons cannon
-  being assembled and fired).
+- **The server never creates an item.** At any time a pledged item is in exactly one place: escrow, a pending reward,
+  or a player. Hearts neither: every heart lost is gained by someone.
+- The server is authoritative: the client only sends intentions, never items.
+- Everything is saved together: a crash can neither lose nor duplicate anything. Items from a removed mod are kept
+  intact until it comes back.
+- **Over 160 automated tests** (JUnit and in-game GameTests, including a real Create Big Cannons cannon assembled and
+  fired), with abuse scenarios: double clicks, disconnecting mid-creation, totems, a clock going backwards,
+  multi-megabyte rewards…
 
 ---
 
 ## Commands
 | Command | |
 |---|---|
-| `/bounty gui` (or key **B**) | Open the bounty board |
-| `/bounty place <player>` | Bounty with the item in your main hand (online or offline target) |
+| `/bounty gui` (or **B**) | Open the bounty board |
+| `/bounty place <player> [public \| private <players…>]` | Bounty with the item in your main hand |
+| `/bounty addhunter <id> <player>`, `/bounty makepublic <id>` | Widen your bounty |
+| `/bounty cancel <id>`, `/bounty resume <id>` | Start or withdraw the cancel notice |
 | `/bounty list`, `/bounty info <id>`, `/bounty history` | Browse bounties |
-| `/bounty cancel <id>` | Cancel your own bounty (refund goes to "To claim") |
-| `/bounty claim` | Claim everything waiting for you |
-| `/bounty admin list`, `/bounty admin cancel <id>` | Operators |
+| `/bounty claim` | Collect everything waiting for you |
+| `/bounty admin list`, `admin cancel <id>`, `admin hearts <player>`, `admin clearimmunity <player>` | Operators (maintenance) |
 
 ## Server config (`serverconfig/bloodcontracts-server.toml`)
 | Option | Default | |
 |---|---|---|
-| `attributionWindowTicks` | 200 | How long a hit keeps you responsible for an environmental death (10 s) |
-| `cannonOperatorWindowTicks` | 200 | How long after touching the controls a cannon shot is yours (10 s) |
-| `creditTamedPets` | true | Pet kills pay the owner |
-| `cancelLockSeconds` | 30 | No cancelling while the target is in combat |
-| `maxActiveBountiesPerSponsor` | 5 | Open bounties per player |
-| `rewardBlacklist` | [] | Items that can't be used as rewards |
-| `showSponsor` | false | Show sponsor names on the board |
-| `alertRevealsSponsor` | true | The target's alert names the sponsor |
-| `historySize` | 200 | Closed bounties kept in the history |
-
-The damage types counted as "environmental" are a datapack tag (`bloodcontracts:environmental`), so you can extend it.
+| `maxActiveBountiesPerSponsor` | 3 | Active bounties per player |
+| `maxHunterListSize` | 20 | Max hunters on a private bounty |
+| `cancelNoticeMinutes` | 30 | Cancel notice (real time) |
+| `maxHeartsLostPerDeath` | 1 | Hearts lost per death under contract |
+| `maxHeartsLost` / `maxHeartsGained` | 5 / 5 | Heart floor and ceiling |
+| `heartRegenMode` | PROGRESSIVE | `PROGRESSIVE` or `PERMANENT` |
+| `heartRegenOnlineStepMinutes` | 90 | Half a heart back every … minutes of play |
+| `heartRegenOfflineStepMinutes` | 720 | … or minutes offline |
+| `targetImmunityMinutes` | 120 | Immunity after a collected bounty (real time) |
+| `attributionWindowTicks` | 200 | A hit makes you responsible for an environmental death for 10 s |
+| `cannonOperatorWindowTicks` | 200 | A cannon shot is yours for 10 s after touching its controls |
+| `creditTamedPets` | true | Pet kills pay their owner |
+| `rewardBlacklist` | [] | Items that cannot be rewards |
+| `showSponsor` / `alertRevealsSponsor` | false / true | Show the sponsor on the board / in the alert |
+| `historySize` / `repeatPairThreshold` | 200 / 2 | History size / flag a hunter who keeps collecting on the same target |
 
 ---
 
 ## Compatibility
-- **Minecraft 1.21.1, NeoForge 21.1.248+.** Required on **both server and client**.
+- **Minecraft 1.21.1, NeoForge 21.1.248+.** Required on **both server and client**, same version.
 - Optional: **Create Big Cannons 5.11.4+** (with Create 6.0.x and Ritchie's Projectile Library),
-  **CBC Enchanced Shells 1.4.0+**. Without them, everything except cannon attribution works the same.
+  **CBC Enchanced Shells 1.4.0+**. Without them everything works the same, except cannon shot attribution.
+- **Updating from 1.0.x**: bounties, escrowed items and pending rewards are migrated automatically. Back up your world
+  first, and update every client at the same time.
 
 ## FAQ
-**Can two friends farm each other?** They can, and it gets them nothing they couldn't get by handing the item over:
-no item is ever created.
+**Can two friends farm each other?** Items, yes, but it gains nothing over just handing them over. Hearts are bounded
+by the floor, the ceiling and the 2-hour immunity.
 
-**What if I'm offline when I win?** The reward waits safely in "To claim", even across restarts.
+**Can an ally of the target collect my bounty?** On a public bounty, yes. Make it private to prevent that.
 
-**Can I put a bounty on someone who isn't online?** Yes, on anyone who has joined the server at least once.
+**What if I'm offline when I win?** The reward waits in "To claim", even across restarts.
