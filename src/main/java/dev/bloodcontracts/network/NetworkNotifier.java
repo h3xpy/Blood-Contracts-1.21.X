@@ -18,14 +18,14 @@ public final class NetworkNotifier implements BountyNotifier {
     public void bountyPlaced(ServerPlayer target, Bounty bounty, String sponsorName) {
         int onHead = BountyManager.get(target.server).activeOn(target.getUUID()).size();
         Optional<String> sponsor = BCConfig.alertRevealsSponsor() ? Optional.of(sponsorName) : Optional.empty();
-        if (!ServerPayloadHandler.send(target, new BountyAlertPayload(sponsor, bounty.displayStacks(), onHead, false))) {
+        if (!ServerPayloadHandler.send(target, new BountyAlertPayload(sponsor, DisplayItems.lite(bounty.displayStacks()), onHead, false))) {
             target.displayClientMessage(Component.translatable("bloodcontracts.alert.title").withStyle(s -> s.withColor(0xFF2020)), true);
         }
     }
 
     @Override
     public void bountiesOnLogin(ServerPlayer target, List<Bounty> bounties) {
-        List<ItemStack> rewards = bounties.stream().flatMap(b -> b.displayStacks().stream()).limit(27).toList();
+        List<ItemStack> rewards = DisplayItems.lite(bounties.stream().flatMap(b -> b.displayStacks().stream()).limit(27).toList());
         if (!ServerPayloadHandler.send(target, new BountyAlertPayload(Optional.empty(), rewards, bounties.size(), true))) {
             target.displayClientMessage(Component.translatable("bloodcontracts.alert.login", bounties.size()), true);
         }

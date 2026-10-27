@@ -129,6 +129,16 @@ public class BountyCreateMenu extends AbstractContainerMenu {
         return player.isAlive();
     }
 
+    /** Puts every stack still in the reward slots back into the player's inventory (at their feet if it is full). */
+    public void returnRewards(Player player) {
+        for (int i = 0; i < rewards.getContainerSize(); i++) {
+            ItemStack stack = rewards.removeItemNoUpdate(i);
+            if (!stack.isEmpty()) {
+                player.getInventory().placeItemBackInInventory(stack);
+            }
+        }
+    }
+
     @Override
     public void removed(Player player) {
         super.removed(player);

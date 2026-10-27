@@ -172,7 +172,7 @@ public final class ServerPayloadHandler {
         List<BountyView> history = manager.history().stream().limit(HISTORY_SENT)
                 .map(b -> BountyView.of(b, manager, player.getUUID(), op)).toList();
         List<DeliveryView> claimable = manager.deliveriesFor(player.getUUID()).stream()
-                .map(d -> new DeliveryView(d.id(), d.stack().copy(), d.reason(),
+                .map(d -> new DeliveryView(d.id(), DisplayItems.lite(d.stack()), d.reason(),
                         manager.findAny(d.bountyId()).map(b -> manager.nameOf(b.target())).orElse("?")))
                 .toList();
         return new BountyListPayload(wanted(player), history, claimable, manager.now(), openScreen, Optional.ofNullable(status), isError);

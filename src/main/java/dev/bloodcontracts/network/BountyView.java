@@ -79,7 +79,7 @@ public record BountyView(UUID id, UUID targetId, String targetName, Optional<Str
         Optional<List<HunterRef>> hunters = b.type() == BountyType.PRIVATE && (mine || viewerIsOperator)
                 ? Optional.of(b.hunters().stream().map(h -> new HunterRef(h, manager.nameOf(h))).toList())
                 : Optional.empty();
-        return new BountyView(b.id(), b.target(), manager.nameOf(b.target()), sponsor, mine, b.displayStacks(),
+        return new BountyView(b.id(), b.target(), manager.nameOf(b.target()), sponsor, mine, DisplayItems.lite(b.displayStacks()),
                 b.createdAt(), b.state(), hunter, b.closedAt(), b.type(), hunters, Optional.ofNullable(b.cancelAt()),
                 manager.canCollect(viewer, b));
     }

@@ -4,9 +4,9 @@ Dernière exécution : 2026-10-27 (NeoForge 21.1.248).
 
 | Suite | Commande | Résultat |
 |---|---|---|
-| JUnit (logique pure) | `./gradlew test` | ✅ 53/53 |
-| GameTests, sans Create ni CBC | `./gradlew runGameTestServer` | ✅ 90/90 |
-| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells 1.4.0 (les 90 tests de base + 8 de compat) | `./gradlew runGameTestServerCompat` | ✅ 98/98 |
+| JUnit (logique pure) | `./gradlew test` | ✅ 54/54 |
+| GameTests, sans Create ni CBC | `./gradlew runGameTestServer` | ✅ 102/102 |
+| GameTests avec Create 6.0.10, CBC 5.11.7, RPL 2.1.2, CBC Enchanced Shells 1.4.0 (les 102 tests de base + 8 de compat) | `./gradlew runGameTestServerCompat` | ✅ 110/110 |
 
 Les serveurs de GameTest s'arrêtent avec un code non nul si un test échoue. Chaque GameTest tourne dans son propre batch
 (ils partagent l'état global du `BountyManager`) et commence par `TestSupport.reset()`, qui remet la config, le PvP,
@@ -131,6 +131,28 @@ Tests JUnit : `V2ModelTest` (types, élargissement seul, préavis, persistance v
 | ✅ | (ajout) Le commanditaire en ligne est prévenu quand sa cible tombe sous contrat | `V2NetworkTests.sponsorIsToldTheirTargetWentDown` | Une seule fois, avec le chasseur et le cœur gagné ; rien pour le chasseur |
 | ✅ | Immunité et préavis dans la vue | `V2NetworkTests.viewsCarryImmunityAndNotice` | Plus l'horloge du serveur, pour les comptes à rebours |
 | ✅ | Toutes les clés de traduction existent en `fr_fr` et `en_us` | `TranslationKeysTest` | Parcourt le code, les JSON de données et les clés construites depuis les enums ; mêmes clés et mêmes `%s` dans les deux langues |
+
+### Robustesse et abus (`AbuseTests`, 2026-10-27)
+Scénarios imaginés pour casser ou détourner le mod. Les trois marqués 🐞 ont révélé un vrai bug, corrigé depuis.
+| | Scénario | Test(s) | Résultat |
+|---|---|---|---|
+| ✅ | Double clic sur « Signer » (deux requêtes avant la fermeture du menu) | `doubleSignMakesOneBounty` | Une seule prime, objets conservés |
+| ✅ 🐞 | Déconnexion avec des objets posés dans l'écran de création | `disconnectingWithItemsInTheCreationMenuKeepsThem` | **Bug** : Minecraft sauvegarde le joueur avant de fermer le menu, les objets tombaient au sol (et y disparaissaient). Corrigé : ils retournent dans l'inventaire avant la sauvegarde ; vérifié par une vraie reconnexion |
+| ✅ | Mort avec des objets dans l'écran de création, réapparition immédiate | `dyingWithItemsInTheCreationMenuLosesNothing` | Lâchés au lieu de la mort, comme une table de craft |
+| ✅ | La cible survit grâce à un totem | `totemSavesTheTargetAndTheBountyStays` | Rien n'est payé, ni cœur, ni immunité |
+| ✅ | Un autre mod annule la mort (mod de réanimation) | `deathCancelledByAnotherModPaysNothing` | Rien n'est payé ; notre écoute passe désormais en dernier (`LOWEST`) |
+| ✅ | L'admin baisse le plancher ou le plafond de cœurs sous des dettes existantes | `loweringHeartBoundsUnderExistingDebtsBreaksNothing` | Transferts existants gardés, nouveaux bloqués, objets payés, aucune erreur |
+| ✅ | Passage `PERMANENT` → `PROGRESSIVE` après 48 h | `switchingPermanentToProgressiveIsNotRetroactive` | Rien n'est rendu rétroactivement |
+| ✅ | L'horloge du serveur recule de 3 h | `clockGoingBackwardsGivesNothingAndBreaksNothing` | Aucun cœur rendu, jauge intacte, préavis ni raccourci ni bloqué |
+| ✅ | Primes croisées (A sur B et B sur A, même chasseur) | `mutualBountiesKeepEveryBalanceConsistent` | Soldes nuls, deux transferts remboursés, modificateurs justes |
+| ✅ | Un autre mod retire déjà 18 PV de vie max | `otherModsLoweringMaxHealthNeverKill` | Jamais de mort, le modificateur de l'autre mod n'est pas touché |
+| ✅ 🐞 | Un pseudo repris par un autre joueur (l'ancien titulaire a changé de nom) | `aNameTakenByAnotherPlayerResolvesToItsCurrentOwner` | **Bug** : `/bounty place <nom>` pouvait viser l'ancien titulaire. Corrigé : le cache de profils du serveur tranche, sinon la connexion la plus récente |
+| ✅ 🐞 | Récompense énorme : une boîte de Shulker pleine de livres remplis (~2,7 Mo) | `heavyRewardsDoNotOverflowTheNetwork` | **Bug** : le tableau pesait 2,7 Mo, au-delà de la limite de 1 Mo, et l'ouvrir déconnectait le joueur. Corrigé : les vues n'envoient que l'apparence de l'objet (`DisplayItems`) ; le séquestre et l'objet remis restent complets |
+| ✅ | Sauvegarde abîmée (transferts négatifs ou vers soi, prime privée sans liste) | `V2ModelTest.malformedV2EntriesDoNotCrashTheLoad` | Pas de plantage ; prime invalide gardée brute, transferts invalides ignorés |
+
+Limites connues, non corrigées : l'info-bulle d'une récompense n'affiche plus le contenu d'une boîte de Shulker ou d'un
+livre (seulement son apparence) ; un chasseur déconnecté pendant le vol de sa flèche n'est pas crédité (« dans le doute,
+pas de récompense »).
 
 ### Ajouts v1 conservés
 Multi-objets (`FeatureTests`), alerte à la cible, prime sur joueur hors ligne, import des joueurs déjà venus, skins hors

@@ -157,6 +157,12 @@ public class BountySavedData extends SavedData {
         return !name.equals(knownPlayers.put(player, name));
     }
 
+    /** Records a login: the player moves to the end, so known players stay in order of last login (most recent last). */
+    void rememberLogin(UUID player, String name) {
+        knownPlayers.remove(player);
+        knownPlayers.put(player, name);
+    }
+
     void putActive(Bounty bounty) {
         if (!bounty.isActive()) {
             throw new IllegalArgumentException("Not active: " + bounty.id());

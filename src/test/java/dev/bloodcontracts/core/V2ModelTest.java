@@ -200,4 +200,40 @@ class V2ModelTest {
         BountySavedData migrated = BountySavedData.load(v1, REGISTRIES);
         assertEquals(5, migrated.activeBounties().size());
     }
+
+    /** A save edited by hand or damaged: bad entries are dropped or kept raw, the rest loads, nothing throws. */
+    @Test
+    void malformedV2EntriesDoNotCrashTheLoad() {
+        BountySavedData data = new BountySavedData();
+        Bounty good = privateBounty(A);
+        data.putActive(good);
+        data.addTransfer(new HeartTransfer(UUID.randomUUID(), TARGET, SPONSOR, 2, 1L));
+        CompoundTag saved = data.save(new CompoundTag(), REGISTRIES);
+
+        // a private bounty that lost its hunter list (invalid), next to the good one
+        CompoundTag broken = BountySavedData.writeBounty(privateBounty(B), REGISTRIES);
+        broken.remove("Hunters");
+        saved.getList("Active", 10).add(broken);
+        // transfers with a negative amount, to oneself, with missing fields
+        net.minecraft.nbt.ListTag transfers = saved.getList("HeartTransfers", 10);
+        CompoundTag negative = transfers.getCompound(0).copy();
+        negative.putUUID("Id", UUID.randomUUID());
+        negative.putInt("RemainingHp", -3);
+        CompoundTag self = transfers.getCompound(0).copy();
+        self.putUUID("Id", UUID.randomUUID());
+        self.putUUID("To", TARGET);
+        transfers.add(negative);
+        transfers.add(self);
+        transfers.add(new CompoundTag());
+
+        BountySavedData loaded = BountySavedData.load(saved, REGISTRIES);
+        assertEquals(1, loaded.activeBounties().size(), "the valid bounty must load");
+        assertEquals(good.id(), loaded.activeBounties().iterator().next().id());
+        assertEquals(1, loaded.unreadableEntries(), "the invalid bounty must be kept raw, not dropped");
+        assertEquals(1, loaded.transfers().size(), "only the valid transfer must load");
+        assertEquals(0, loaded.balance(TARGET) + loaded.balance(SPONSOR));
+        // and the raw entry survives the next save
+        BountySavedData again = BountySavedData.load(loaded.save(new CompoundTag(), REGISTRIES), REGISTRIES);
+        assertEquals(1, again.unreadableEntries());
+    }
 }

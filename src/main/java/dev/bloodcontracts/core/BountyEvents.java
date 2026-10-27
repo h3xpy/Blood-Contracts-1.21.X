@@ -18,7 +18,8 @@ public final class BountyEvents {
     public static void register(IEventBus gameBus) {
         gameBus.addListener(BountyEvents::onDamage);
         // Low priority: let other mods cancel the death (totems, revive mods...) first; cancelled deaths are not received.
-        gameBus.addListener(EventPriority.LOW, BountyEvents::onDeath);
+        // Last, and only if no other mod cancelled the death (revive mods...): in doubt, no reward.
+        gameBus.addListener(EventPriority.LOWEST, BountyEvents::onDeath);
         gameBus.addListener(BountyEvents::onLogin);
         gameBus.addListener(BountyEvents::onLogout);
         gameBus.addListener(BountyEvents::onServerTick);
@@ -51,6 +52,11 @@ public final class BountyEvents {
 
     private static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            // Fired before the player data is saved; the menu itself is only closed afterwards, when the player is
+            // already disconnected, and would then drop its items on the ground where they despawn.
+            if (player.containerMenu instanceof dev.bloodcontracts.menu.BountyCreateMenu menu) {
+                menu.returnRewards(player);
+            }
             BountyManager.get(player.server).onPlayerLogout(player);
         }
     }

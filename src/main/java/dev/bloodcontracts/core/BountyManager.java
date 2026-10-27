@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -154,13 +155,16 @@ public final class BountyManager {
         if (online != null) {
             return Optional.of(online.getUUID());
         }
-        for (var e : data().knownPlayers().entrySet()) {
-            if (e.getValue().equalsIgnoreCase(name)) {
-                return Optional.of(e.getKey());
-            }
-        }
+        // Several known players can share a name: one renamed and has not come back since. The current owner of the
+        // name is the one the server's profile cache knows, or else the one who logged in most recently.
+        List<UUID> matches = data().knownPlayers().entrySet().stream()
+                .filter(e -> e.getValue().equalsIgnoreCase(name)).map(Map.Entry::getKey).toList();
         GameProfileCache cache = server.getProfileCache();
-        return cache == null ? Optional.empty() : cache.get(name).map(com.mojang.authlib.GameProfile::getId);
+        Optional<UUID> cached = cache == null ? Optional.empty() : cache.get(name).map(com.mojang.authlib.GameProfile::getId);
+        if (matches.size() > 1 && cached.isPresent() && matches.contains(cached.get())) {
+            return cached;
+        }
+        return matches.isEmpty() ? cached : Optional.of(matches.get(matches.size() - 1));
     }
 
     public String nameOf(UUID uuid) {
@@ -840,9 +844,8 @@ public final class BountyManager {
     /** {@code PlayerLoggedInEvent}. */
     public void onPlayerLogin(ServerPlayer player) {
         BountySavedData data = data();
-        if (data.rememberPlayer(player.getUUID(), player.getGameProfile().getName())) {
-            data.setDirty();
-        }
+        data.rememberLogin(player.getUUID(), player.getGameProfile().getName());
+        data.setDirty();
         player.getGameProfile().getProperties().get("textures").stream().findFirst().ifPresent(textures -> {
             if (data.rememberSkin(player.getUUID(), textures)) {
                 data.setDirty();
