@@ -1,5 +1,6 @@
 package dev.bloodcontracts.client;
 
+import dev.bloodcontracts.network.BCPayloads;
 import dev.bloodcontracts.network.BCPayloads.BountyAlertPayload;
 import dev.bloodcontracts.network.BCPayloads.BountyListPayload;
 import dev.bloodcontracts.network.BCPayloads.KnownPlayersPayload;
@@ -12,7 +13,14 @@ public final class ClientPayloadHandler {
     /** Last list of players the server knows (online and offline), for the creation screen. */
     static List<KnownPlayersPayload.KnownPlayer> knownPlayers = List.of();
 
+    /** Server settings for the help tab (defaults until the server sends its own at login). */
+    static BCPayloads.HelpConfigPayload helpConfig = BCPayloads.HelpConfigPayload.fromConfig();
+
     private ClientPayloadHandler() {}
+
+    public static void handleHelpConfig(BCPayloads.HelpConfigPayload payload) {
+        helpConfig = payload;
+    }
 
     public static void handleList(BountyListPayload payload) {
         Minecraft mc = Minecraft.getInstance();

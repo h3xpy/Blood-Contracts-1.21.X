@@ -1,6 +1,8 @@
 package dev.bloodcontracts.network;
 
 import dev.bloodcontracts.BloodContracts;
+import dev.bloodcontracts.config.BCConfig;
+import dev.bloodcontracts.core.BountyType;
 import dev.bloodcontracts.core.PendingDelivery;
 import java.util.List;
 import java.util.Optional;
@@ -28,11 +30,29 @@ public final class BCPayloads {
 
     // ---------------------------------------------------------------- client → server
 
-    /** Confirm the open creation menu: the rewards are whatever the server-side slots hold. */
-    public record CreateBountyRequest(UUID target) implements CustomPacketPayload {
+    /** Upper bound for UUID lists read from the network (the real limit, {@code maxHunterListSize}, is checked by the manager). */
+    public static final int MAX_HUNTERS_ON_WIRE = 1024;
+
+    private static final StreamCodec<io.netty.buffer.ByteBuf, List<UUID>> UUID_LIST =
+            UUIDUtil.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_HUNTERS_ON_WIRE));
+
+    /**
+     * Confirm the open creation menu: the rewards are whatever the server-side slots hold.
+     *
+     * @param hunters the private hunter list (must be empty for a public bounty; revalidated by the manager)
+     */
+    public record CreateBountyRequest(UUID target, BountyType bountyType, List<UUID> hunters) implements CustomPacketPayload {
         public static final Type<CreateBountyRequest> TYPE = BCPayloads.payloadType("create_bounty");
-        public static final StreamCodec<RegistryFriendlyByteBuf, CreateBountyRequest> STREAM_CODEC =
-                StreamCodec.composite(UUIDUtil.STREAM_CODEC, CreateBountyRequest::target, CreateBountyRequest::new);
+        public static final StreamCodec<RegistryFriendlyByteBuf, CreateBountyRequest> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, CreateBountyRequest::target,
+                NeoForgeStreamCodecs.enumCodec(BountyType.class), CreateBountyRequest::bountyType,
+                UUID_LIST, CreateBountyRequest::hunters,
+                CreateBountyRequest::new);
+
+        /** A public bounty. */
+        public CreateBountyRequest(UUID target) {
+            this(target, BountyType.PUBLIC, List.of());
+        }
 
         @Override
         public Type<CreateBountyRequest> type() {
@@ -40,6 +60,43 @@ public final class BCPayloads {
         }
     }
 
+    /** Widen a private bounty: add hunters. There is deliberately no payload to remove one. */
+    public record AddHuntersRequest(UUID bountyId, List<UUID> hunters) implements CustomPacketPayload {
+        public static final Type<AddHuntersRequest> TYPE = BCPayloads.payloadType("add_hunters");
+        public static final StreamCodec<RegistryFriendlyByteBuf, AddHuntersRequest> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, AddHuntersRequest::bountyId, UUID_LIST, AddHuntersRequest::hunters, AddHuntersRequest::new);
+
+        @Override
+        public Type<AddHuntersRequest> type() {
+            return TYPE;
+        }
+    }
+
+    /** Widen a private bounty to everyone. There is deliberately no payload for the other direction. */
+    public record MakePublicRequest(UUID bountyId) implements CustomPacketPayload {
+        public static final Type<MakePublicRequest> TYPE = BCPayloads.payloadType("make_public");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MakePublicRequest> STREAM_CODEC =
+                StreamCodec.composite(UUIDUtil.STREAM_CODEC, MakePublicRequest::bountyId, MakePublicRequest::new);
+
+        @Override
+        public Type<MakePublicRequest> type() {
+            return TYPE;
+        }
+    }
+
+    /** Withdraw a pending cancellation. */
+    public record ResumeBountyRequest(UUID bountyId) implements CustomPacketPayload {
+        public static final Type<ResumeBountyRequest> TYPE = BCPayloads.payloadType("resume_bounty");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ResumeBountyRequest> STREAM_CODEC =
+                StreamCodec.composite(UUIDUtil.STREAM_CODEC, ResumeBountyRequest::bountyId, ResumeBountyRequest::new);
+
+        @Override
+        public Type<ResumeBountyRequest> type() {
+            return TYPE;
+        }
+    }
+
+    /** Start the cancel notice (the bounty stays collectable during the notice). */
     public record CancelBountyRequest(UUID bountyId) implements CustomPacketPayload {
         public static final Type<CancelBountyRequest> TYPE = BCPayloads.payloadType("cancel_bounty");
         public static final StreamCodec<RegistryFriendlyByteBuf, CancelBountyRequest> STREAM_CODEC =
@@ -100,20 +157,37 @@ public final class BCPayloads {
     /**
      * Bounty board contents.
      *
+     * @param wanted     one entry (poster) per target with active bounties, already sorted for the viewer
+     * @param serverNow  the server clock when sent, so countdowns do not depend on the client's clock
      * @param openScreen open the board screen if it is not open yet
      * @param status     feedback for the last request (success or refusal), if any
      */
-    public record BountyListPayload(List<BountyView> active, List<BountyView> history, List<DeliveryView> claimable,
+    public record BountyListPayload(List<TargetView> wanted, List<BountyView> history, List<DeliveryView> claimable, long serverNow,
                                     boolean openScreen, Optional<Component> status, boolean statusIsError) implements CustomPacketPayload {
         public static final Type<BountyListPayload> TYPE = BCPayloads.payloadType("bounty_list");
-        public static final StreamCodec<RegistryFriendlyByteBuf, BountyListPayload> STREAM_CODEC = StreamCodec.composite(
-                BountyView.STREAM_CODEC.apply(ByteBufCodecs.list()), BountyListPayload::active,
-                BountyView.STREAM_CODEC.apply(ByteBufCodecs.list()), BountyListPayload::history,
-                DeliveryView.STREAM_CODEC.apply(ByteBufCodecs.list()), BountyListPayload::claimable,
-                ByteBufCodecs.BOOL, BountyListPayload::openScreen,
-                ByteBufCodecs.optional(ComponentSerialization.TRUSTED_STREAM_CODEC), BountyListPayload::status,
-                ByteBufCodecs.BOOL, BountyListPayload::statusIsError,
-                BountyListPayload::new);
+        public static final StreamCodec<RegistryFriendlyByteBuf, BountyListPayload> STREAM_CODEC = StreamCodec.of(
+                (buf, p) -> {
+                    TargetView.STREAM_CODEC.apply(ByteBufCodecs.list()).encode(buf, p.wanted);
+                    BountyView.STREAM_CODEC.apply(ByteBufCodecs.list()).encode(buf, p.history);
+                    DeliveryView.STREAM_CODEC.apply(ByteBufCodecs.list()).encode(buf, p.claimable);
+                    buf.writeLong(p.serverNow);
+                    buf.writeBoolean(p.openScreen);
+                    ByteBufCodecs.optional(ComponentSerialization.TRUSTED_STREAM_CODEC).encode(buf, p.status);
+                    buf.writeBoolean(p.statusIsError);
+                },
+                buf -> new BountyListPayload(
+                        TargetView.STREAM_CODEC.apply(ByteBufCodecs.list()).decode(buf),
+                        BountyView.STREAM_CODEC.apply(ByteBufCodecs.list()).decode(buf),
+                        DeliveryView.STREAM_CODEC.apply(ByteBufCodecs.list()).decode(buf),
+                        buf.readLong(),
+                        buf.readBoolean(),
+                        ByteBufCodecs.optional(ComponentSerialization.TRUSTED_STREAM_CODEC).decode(buf),
+                        buf.readBoolean()));
+
+        /** All active bounties, flattened. */
+        public List<BountyView> active() {
+            return wanted.stream().flatMap(t -> t.bounties().stream()).toList();
+        }
 
         @Override
         public Type<BountyListPayload> type() {
@@ -121,8 +195,52 @@ public final class BCPayloads {
         }
     }
 
-    /** Every player the server knows (online or not), for the creation screen's target picker. */
-    public record KnownPlayersPayload(List<KnownPlayer> players) implements CustomPacketPayload {
+    /** Server settings shown in the "How it works" tab, sent at login. The tab never hard-codes a value. */
+    public record HelpConfigPayload(int cancelNoticeMinutes, int maxHeartsLostPerDeath, int maxHeartsLost, int maxHeartsGained,
+                                    boolean progressiveRegen, int regenOnlineStepMinutes, int regenOfflineStepMinutes,
+                                    int immunityMinutes, int attributionWindowTicks, int maxActiveBountiesPerSponsor,
+                                    int maxHunterListSize, boolean creditTamedPets) implements CustomPacketPayload {
+        public static final Type<HelpConfigPayload> TYPE = BCPayloads.payloadType("help_config");
+        public static final StreamCodec<RegistryFriendlyByteBuf, HelpConfigPayload> STREAM_CODEC = StreamCodec.of(
+                (buf, p) -> {
+                    buf.writeVarInt(p.cancelNoticeMinutes);
+                    buf.writeVarInt(p.maxHeartsLostPerDeath);
+                    buf.writeVarInt(p.maxHeartsLost);
+                    buf.writeVarInt(p.maxHeartsGained);
+                    buf.writeBoolean(p.progressiveRegen);
+                    buf.writeVarInt(p.regenOnlineStepMinutes);
+                    buf.writeVarInt(p.regenOfflineStepMinutes);
+                    buf.writeVarInt(p.immunityMinutes);
+                    buf.writeVarInt(p.attributionWindowTicks);
+                    buf.writeVarInt(p.maxActiveBountiesPerSponsor);
+                    buf.writeVarInt(p.maxHunterListSize);
+                    buf.writeBoolean(p.creditTamedPets);
+                },
+                buf -> new HelpConfigPayload(buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readBoolean(),
+                        buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
+                        buf.readBoolean()));
+
+        /** The values in force on this server. */
+        public static HelpConfigPayload fromConfig() {
+            return new HelpConfigPayload(BCConfig.get(BCConfig.CANCEL_NOTICE_MINUTES), BCConfig.get(BCConfig.MAX_HEARTS_LOST_PER_DEATH),
+                    BCConfig.get(BCConfig.MAX_HEARTS_LOST), BCConfig.get(BCConfig.MAX_HEARTS_GAINED),
+                    BCConfig.heartRegenMode() == BCConfig.HeartRegenMode.PROGRESSIVE,
+                    BCConfig.get(BCConfig.HEART_REGEN_ONLINE_STEP_MINUTES), BCConfig.get(BCConfig.HEART_REGEN_OFFLINE_STEP_MINUTES),
+                    BCConfig.get(BCConfig.TARGET_IMMUNITY_MINUTES), BCConfig.attributionWindowTicks(),
+                    BCConfig.maxActiveBountiesPerSponsor(), BCConfig.maxHunterListSize(), BCConfig.creditTamedPets());
+        }
+
+        @Override
+        public Type<HelpConfigPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Every player the server knows (online or not), for the creation screen's target picker, with the recurring
+     * hunter-target pairs that screen shows.
+     */
+    public record KnownPlayersPayload(List<KnownPlayer> players, List<TargetView.RepeatView> repeatPairs) implements CustomPacketPayload {
         /**
          * @param skin       signed "textures" property value recorded at the player's last login, so the client can show
          *                   their real face while they are offline
@@ -144,7 +262,9 @@ public final class BCPayloads {
 
         public static final Type<KnownPlayersPayload> TYPE = BCPayloads.payloadType("known_players");
         public static final StreamCodec<RegistryFriendlyByteBuf, KnownPlayersPayload> STREAM_CODEC = StreamCodec.composite(
-                KnownPlayer.STREAM_CODEC.apply(ByteBufCodecs.list()), KnownPlayersPayload::players, KnownPlayersPayload::new);
+                KnownPlayer.STREAM_CODEC.apply(ByteBufCodecs.list()), KnownPlayersPayload::players,
+                TargetView.RepeatView.STREAM_CODEC.apply(ByteBufCodecs.list()), KnownPlayersPayload::repeatPairs,
+                KnownPlayersPayload::new);
 
         @Override
         public Type<KnownPlayersPayload> type() {

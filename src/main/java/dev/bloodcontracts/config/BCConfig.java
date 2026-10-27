@@ -112,7 +112,8 @@ public final class BCConfig {
 
     private BCConfig() {}
 
-    private static <T> T get(ModConfigSpec.ConfigValue<T> value) {
+    /** A value, or its default before the config is loaded (tests, early startup). */
+    public static <T> T get(ModConfigSpec.ConfigValue<T> value) {
         return SPEC.isLoaded() ? value.get() : value.getDefault();
     }
 

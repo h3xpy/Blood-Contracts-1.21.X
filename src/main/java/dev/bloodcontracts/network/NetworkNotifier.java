@@ -32,6 +32,11 @@ public final class NetworkNotifier implements BountyNotifier {
     }
 
     @Override
+    public void loggedIn(ServerPlayer player) {
+        ServerPayloadHandler.send(player, BCPayloads.HelpConfigPayload.fromConfig());
+    }
+
+    @Override
     public void rewardsAvailable(ServerPlayer player, int count) {
         if (!ServerPayloadHandler.send(player, new RewardsAvailablePayload(count))) {
             player.displayClientMessage(Component.translatable("bloodcontracts.toast.rewards.body", count), true);

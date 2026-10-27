@@ -196,6 +196,20 @@ public final class BountyManager {
         return data().balance(player);
     }
 
+    /**
+     * Hunters who collected more than {@code repeatPairThreshold} bounties on {@code target} (or on anyone when
+     * {@code target} is null), most first. The counters survive the history purge.
+     */
+    public List<RepeatPair> repeatPairs(@Nullable UUID target) {
+        int threshold = BCConfig.repeatPairThreshold();
+        return data().pairCounts().entrySet().stream()
+                .filter(e -> target == null || e.getKey().target().equals(target))
+                .filter(e -> e.getValue() > threshold)
+                .map(e -> new RepeatPair(e.getKey().hunter(), e.getKey().target(), e.getValue()))
+                .sorted(java.util.Comparator.comparingInt(RepeatPair::count).reversed())
+                .toList();
+    }
+
     /** Could {@code viewer} collect this bounty by killing its target right now (immunity aside)? */
     public boolean canCollect(UUID viewer, Bounty bounty) {
         return bounty.isActive() && bounty.isEligibleHunter(viewer);
@@ -818,6 +832,7 @@ public final class BountyManager {
                 data.setDirty();
             }
         });
+        BountyNotifier.get().loggedIn(player);
         // The time since the last update was spent offline.
         updateRegen(player.getUUID(), false, now());
         applyHeartModifier(player);

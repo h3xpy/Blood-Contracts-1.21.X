@@ -18,6 +18,9 @@ public interface BountyNotifier {
     /** {@code player} has {@code count} stacks waiting to be claimed in the board. */
     void rewardsAvailable(ServerPlayer player, int count);
 
+    /** {@code player} just logged in (the client gets the settings its help tab shows). */
+    default void loggedIn(ServerPlayer player) {}
+
     BountyNotifier NONE = new BountyNotifier() {
         @Override public void bountyPlaced(ServerPlayer target, Bounty bounty, String sponsorName) {}
         @Override public void bountiesOnLogin(ServerPlayer target, List<Bounty> bounties) {}

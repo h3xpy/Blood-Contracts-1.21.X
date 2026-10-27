@@ -150,11 +150,11 @@ public class NetworkTests {
         helper.assertTrue(v.icon().is(Items.DIAMOND) && v.icon().getCount() == 5 && v.targetName().equals(target.getGameProfile().getName()),
                 "decoded view differs");
 
-        // A request payload round-trips too and carries nothing but the UUID.
+        // A request payload round-trips too and carries only intentions: target UUID, type, hunter UUIDs. Never an item.
         RegistryFriendlyByteBuf buf2 = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
         UUID id = UUID.randomUUID();
         BCPayloads.CreateBountyRequest.STREAM_CODEC.encode(buf2, new BCPayloads.CreateBountyRequest(id));
-        helper.assertTrue(buf2.readableBytes() == 16, "create request should only carry a UUID");
+        helper.assertTrue(buf2.readableBytes() == 16 + 1 + 1, "create request should only carry a UUID, a type and an (empty) UUID list");
         helper.assertTrue(BCPayloads.CreateBountyRequest.STREAM_CODEC.decode(buf2).target().equals(id), "UUID corrupted");
         helper.succeed();
     }
